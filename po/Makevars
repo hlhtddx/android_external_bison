@@ -9,18 +9,17 @@ top_builddir = ..
 
 # These options get passed to xgettext.
 XGETTEXT_OPTIONS = --keyword=_ --keyword=N_ \
+          \
+ --flag=_:1:pass-c-format\
+ --flag=N_:1:pass-c-format\
+ --flag=error:3:c-format --flag=error_at_line:5:c-format\
 \
---flag=_:1:pass-c-format\
---flag=N_:1:pass-c-format\
---flag=error:3:c-format --flag=error_at_line:5:c-format\
-\
---from-code=UTF-8\
---flag=asprintf:2:c-format\
---flag=complain:1:c-format --flag=complain_at:2:c-format\
---flag=fatal:1:c-format --flag=fatal_at:2:c-format\
---flag=warn:1:c-format  --flag=warn_at:2:c-format\
---flag=unexpected_end:2:c-format\
-$${end_of_xgettext_options+}
+ --from-code=UTF-8\
+ --flag=asprintf:2:c-format\
+ --flag=complain:3:c-format\
+ --flag=complain_indent:4:c-format\
+ --flag=unexpected_end:2:c-format\
+ $${end_of_xgettext_options+}
 
 # This is the copyright holder that gets inserted into the header of the
 # $(DOMAIN).pot file.  Set this to the copyright holder of the surrounding
@@ -51,3 +50,15 @@ MSGID_BUGS_ADDRESS = bug-bison@gnu.org
 # This is the list of locale categories, beyond LC_MESSAGES, for which the
 # message catalogs shall be used.  It is usually empty.
 EXTRA_LOCALE_CATEGORIES = 
+
+# This tells whether the $(DOMAIN).pot file contains messages with an 'msgctxt'
+# context.  Possible values are "yes" and "no".  Set this to yes if the
+# package uses functions taking also a message context, like pgettext(), or
+# if in $(XGETTEXT_OPTIONS) you define keywords with a context argument.
+USE_MSGCTXT = no
+
+# These options get passed to msgmerge.
+# Useful options are in particular:
+#   --previous            to keep previous msgids of translated messages,
+#   --quiet               to reduce the verbosity.
+MSGMERGE_OPTIONS =

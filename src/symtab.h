@@ -1,6 +1,6 @@
 /* Definitions for symtab.c and callers, part of Bison.
 
-   Copyright (C) 1984, 1989, 1992, 2000-2002, 2004-2007, 2009-2012 Free
+   Copyright (C) 1984, 1989, 1992, 2000-2002, 2004-2015, 2018-2019 Free
    Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
@@ -38,27 +38,86 @@
 /** Symbol classes.  */
 typedef enum
 {
-  unknown_sym,          /**< Undefined.  */
-  token_sym,		/**< Terminal. */
-  nterm_sym		/**< Non-terminal. */
+  /** Undefined.  */
+  unknown_sym,
+  /** Declared with %type: same as Undefined, but triggered a Wyacc if
+      applied to a terminal. */
+  pct_type_sym,
+  /** Terminal. */
+  token_sym,
+  /** Nonterminal. */
+  nterm_sym
 } symbol_class;
 
 
 /** Internal token numbers. */
 typedef int symbol_number;
-#define SYMBOL_NUMBER_MAXIMUM INT_MAX
+# define SYMBOL_NUMBER_MAXIMUM INT_MAX
 
 
 typedef struct symbol symbol;
+typedef struct sym_content sym_content;
 
-/* When extending this structure, be sure to complete
-   symbol_check_alias_consistency.  */
+/* Declaration status of a symbol.
+
+   First, it is "undeclared".  Then, if "undeclared" and used in a
+   %printer/%destructor, it is "used".  If not "declared" but used in
+   a rule, it is "needed".  Finally, if declared (via a rule for
+   nonterminals, or %token), it is "declared".
+
+   When status are checked at the end, "declared" symbols are fine,
+   "used" symbols trigger warnings, otherwise it's an error.  */
+
+typedef enum
+  {
+    /** Used in the input file for an unknown reason (error).  */
+    undeclared,
+    /** Used by %destructor/%printer but not defined (warning).  */
+    used,
+    /** Used in the grammar (rules) but not defined (error).  */
+    needed,
+    /** Defined with %type or %token (good).  */
+    declared,
+  } declaration_status;
+
+enum code_props_type
+  {
+    destructor = 0,
+    printer = 1,
+  };
+typedef enum code_props_type code_props_type;
+
+enum { CODE_PROPS_SIZE = 2 };
+
 struct symbol
 {
   /** The key, name of the symbol.  */
   uniqstr tag;
-  /** The location of its first occurrence.  */
+
+  /** The "defining" location.  */
   location location;
+
+  /** Whether \a location is about the first uses as left-hand side
+      symbol of a rule (true), or simply the first occurrence (e.g.,
+      in a %type, or as a rhs symbol of a rule).  The former type of
+      location is more natural in error messages.  This Boolean helps
+      moving from location of the first occurrence to first use as
+      lhs. */
+  bool location_of_lhs;
+
+  /** Points to the other in the symbol-string pair for an alias. */
+  symbol *alias;
+
+  /** Whether this symbol is the alias of another or not. */
+  bool is_alias;
+
+  /** All the info about the pointed symbol is there. */
+  sym_content *content;
+};
+
+struct sym_content
+{
+  symbol *symbol;
 
   /** Its \c \%type.
 
@@ -69,51 +128,36 @@ struct symbol
   uniqstr type_name;
 
   /** Its \c \%type's location.  */
-  location type_location;
+  location type_loc;
 
-  /** Any \c \%destructor declared specifically for this symbol.
+  /** Any \c \%destructor (resp. \%printer) declared specificially for this
+      symbol.
 
-      Access this field only through <tt>symbol</tt>'s interface
-      functions.  For example, if <tt>symbol::destructor = NULL</tt>, a
-      default \c \%destructor or a per-type \c \%destructor might be
-      appropriate, and \c symbol_destructor_get will compute the
-      correct one.  */
-  code_props destructor;
-
-  /** Any \c \%printer declared specifically for this symbol.
-
-      Access this field only through <tt>symbol</tt>'s interface functions.
-      \sa symbol::destructor  */
-  code_props printer;
+      Access this field only through <tt>symbol</tt>'s interface functions. For
+      example, if <tt>symbol::destructor = NULL</tt> (resp. <tt>symbol::printer
+      = NULL</tt>), a default \c \%destructor (resp. \%printer) or a per-type
+      \c symbol_destructor_printer_get will compute the correct one. */
+  code_props props[CODE_PROPS_SIZE];
 
   symbol_number number;
-  location prec_location;
+  location prec_loc;
   int prec;
   assoc assoc;
+
+  /** The user specified token number.
+
+      E.g., %token FOO 42.*/
   int user_token_number;
 
-  /* Points to the other in the symbol-string pair for an alias.
-     Special value USER_NUMBER_HAS_STRING_ALIAS in the symbol half of the
-     symbol-string pair for an alias.  */
-  symbol *alias;
   symbol_class class;
-  bool declared;
+  declaration_status status;
 };
 
 /** Undefined user number.  */
-#define USER_NUMBER_UNDEFINED -1
-
-/* `symbol->user_token_number == USER_NUMBER_HAS_STRING_ALIAS' means
-   this symbol has a literal string alias.  For instance, `%token foo
-   "foo"' has `"foo"' numbered regularly, and `foo' numbered as
-   USER_NUMBER_HAS_STRING_ALIAS.  */
-#define USER_NUMBER_HAS_STRING_ALIAS -9991
+# define USER_NUMBER_UNDEFINED -1
 
 /* Undefined internal token number.  */
-#define NUMBER_UNDEFINED (-1)
-
-/** Print a symbol (for debugging). */
-void symbol_print (symbol *s, FILE *f);
+# define NUMBER_UNDEFINED (-1)
 
 /** Fetch (or create) the symbol associated to KEY.  */
 symbol *symbol_from_uniqstr (const uniqstr key, location loc);
@@ -126,8 +170,25 @@ symbol *symbol_get (const char *key, location loc);
    Its name cannot conflict with the user's names.  */
 symbol *dummy_symbol_get (location loc);
 
+
+/*--------------------.
+| Methods on symbol.  |
+`--------------------*/
+
+/** Print a symbol (for debugging). */
+void symbol_print (symbol const *s, FILE *f);
+
 /** Is this a dummy nonterminal?  */
 bool symbol_is_dummy (const symbol *sym);
+
+/** The name of the code_props type: "\%destructor" or "\%printer".  */
+char const *code_props_type_string (code_props_type kind);
+
+/** The name of the symbol that can be used as an identifier.
+ ** Consider the alias if needed.
+ ** Return 0 if there is none (e.g., the symbol is only defined as
+ ** a string). */
+uniqstr symbol_id_get (symbol const *sym);
 
 /**
  * Make \c str the literal string alias of \c sym.  Copy token number,
@@ -135,38 +196,47 @@ bool symbol_is_dummy (const symbol *sym);
  */
 void symbol_make_alias (symbol *sym, symbol *str, location loc);
 
+/**
+ * This symbol is used as the lhs of a rule.  Record this location
+ * as definition point, if not already done.
+ */
+void symbol_location_as_lhs_set (symbol *sym, location loc);
+
 /** Set the \c type_name associated with \c sym.
 
     Do nothing if passed 0 as \c type_name.  */
 void symbol_type_set (symbol *sym, uniqstr type_name, location loc);
 
-/** Set the \c destructor associated with \c sym.  */
-void symbol_destructor_set (symbol *sym, code_props const *destructor);
+/** Set the \c \%destructor or \c \%printer associated with \c sym.  */
+void symbol_code_props_set (symbol *sym, code_props_type kind,
+                            code_props const *destructor);
 
-/** Get the computed \c \%destructor for \c sym, which was initialized with
-    \c code_props_none_init if there's no \c \%destructor.  */
-code_props const *symbol_destructor_get (symbol const *sym);
+/** Get the computed \c \%destructor or \c %printer for \c sym, which was
+    initialized with \c code_props_none_init if there's no \c \%destructor or
+    \c %printer.  */
+code_props *symbol_code_props_get (symbol *sym, code_props_type kind);
 
-/** Set the \c printer associated with \c sym.  */
-void symbol_printer_set (symbol *sym, code_props const *printer);
+/** Set the \c precedence associated with \c sym.
 
-/** Get the computed \c \%printer for \c sym, which was initialized with
-    \c code_props_none_init if there's no \c \%printer.  */
-code_props const *symbol_printer_get (symbol const *sym);
-
-/* Set the \c precedence associated with \c sym.
-
-   Ensure that \a symbol is a terminal.
-   Do nothing if invoked with \c undef_assoc as \c assoc.  */
+    Ensure that \a symbol is a terminal.
+    Do nothing if invoked with \c undef_assoc as \c assoc.  */
 void symbol_precedence_set (symbol *sym, int prec, assoc a, location loc);
 
-/** Set the \c class associated with \c sym.  */
+/** Set the \c class associated with \c sym.
+
+    Whether \c declaring means whether this class definition comes
+    from %nterm or %token (but not %type, prec/assoc, etc.).  */
 void symbol_class_set (symbol *sym, symbol_class class, location loc,
-		       bool declaring);
+                       bool declaring);
 
 /** Set the \c user_token_number associated with \c sym.  */
 void symbol_user_token_number_set (symbol *sym, int user_number, location loc);
 
+
+
+/*------------------.
+| Special symbols.  |
+`------------------*/
 
 /** The error token. */
 extern symbol *errtoken;
@@ -182,8 +252,63 @@ extern symbol *accept;
 /** The user start symbol. */
 extern symbol *startsymbol;
 /** The location of the \c \%start declaration.  */
-extern location startsymbol_location;
+extern location startsymbol_loc;
 
+/** Whether a symbol declared with a type tag.  */
+extern bool tag_seen;
+
+
+/*-------------------.
+| Symbol Relations.  |
+`-------------------*/
+
+/* The symbol relations are represented by a directed graph. */
+
+/* The id of a node */
+typedef int graphid;
+
+typedef struct symgraphlink symgraphlink;
+
+struct symgraphlink
+{
+  /** The second \c symbol or group of a precedence relation.
+   * See \c symgraph. */
+  graphid id;
+
+  symgraphlink *next;
+};
+
+/* Symbol precedence graph, to store the used precedence relations between
+ * symbols. */
+
+typedef struct symgraph symgraph;
+
+struct symgraph
+{
+  /** Identifier for the node: equal to the number of the symbol. */
+  graphid id;
+
+  /** The list of related symbols that have a smaller precedence. */
+  symgraphlink *succ;
+
+  /** The list of related symbols that have a greater precedence. */
+  symgraphlink *pred;
+};
+
+/** Register a new precedence relation as used. */
+
+void register_precedence (graphid first, graphid snd);
+
+/** Print a warning for each symbol whose precedence and/or associativity
+ * is useless. */
+
+void print_precedence_warnings (void);
+
+/*----------------------.
+| Symbol associativity  |
+`----------------------*/
+
+void register_assoc (graphid i, graphid j);
 
 /*-----------------.
 | Semantic types.  |
@@ -197,31 +322,37 @@ typedef struct {
   /** The key, name of the semantic type.  */
   uniqstr tag;
 
-  /** Any \c %destructor declared for this semantic type.  */
-  code_props destructor;
-  /** Any \c %printer declared for this semantic type.  */
-  code_props printer;
+  /** The location of its first occurrence.  */
+  location location;
+
+  /** Its status : "undeclared", "used" or "declared".
+      It cannot be "needed".  */
+  declaration_status status;
+
+  /** Any \c %destructor and %printer declared for this
+      semantic type.  */
+  code_props props[CODE_PROPS_SIZE];
+
 } semantic_type;
 
 /** Fetch (or create) the semantic type associated to KEY.  */
-semantic_type *semantic_type_from_uniqstr (const uniqstr key);
+semantic_type *semantic_type_from_uniqstr (const uniqstr key,
+                                           const location *loc);
 
 /** Fetch (or create) the semantic type associated to KEY.  */
-semantic_type *semantic_type_get (const char *key);
+semantic_type *semantic_type_get (const char *key, const location *loc);
 
-/** Set the \c destructor associated with \c type.  */
-void semantic_type_destructor_set (semantic_type *type,
-                                   code_props const *destructor);
-
-/** Set the \c printer associated with \c type.  */
-void semantic_type_printer_set (semantic_type *type,
-                                code_props const *printer);
+/** Set the \c destructor or \c printer associated with \c type.  */
+void semantic_type_code_props_set (semantic_type *type,
+                                   code_props_type kind,
+                                   code_props const *code);
 
 /*----------------------------------.
 | Symbol and semantic type tables.  |
 `----------------------------------*/
 
-/** Create the symbol and semantic type tables.  */
+/** Create the symbol and semantic type tables, and the built-in
+    symbols.  */
 void symbols_new (void);
 
 /** Free all the memory allocated for symbols and semantic types.  */
@@ -237,20 +368,5 @@ void symbols_check_defined (void);
    Perform various sanity checks, assign symbol numbers, and set up
    #token_translations.  */
 void symbols_pack (void);
-
-
-/*---------------------------------------.
-| Default %destructor's and %printer's.  |
-`---------------------------------------*/
-
-/** Set the default \c \%destructor for tagged values.  */
-void default_tagged_destructor_set (code_props const *destructor);
-/** Set the default \c \%destructor for tagless values.  */
-void default_tagless_destructor_set (code_props const *destructor);
-
-/** Set the default \c \%printer for tagged values.  */
-void default_tagged_printer_set (code_props const *printer);
-/** Set the default \c \%printer for tagless values.  */
-void default_tagless_printer_set (code_props const *printer);
 
 #endif /* !SYMTAB_H_ */

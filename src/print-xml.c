@@ -1,6 +1,7 @@
 /* Print an xml on generated parser, for Bison,
 
-   Copyright (C) 2007, 2009-2012 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2009-2015, 2018-2019 Free Software Foundation,
+   Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -18,21 +19,21 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+#include "print-xml.h"
+
 #include "system.h"
 
+#include <bitset.h>
 #include <stdarg.h>
 
-#include <bitset.h>
-
-#include "LR0.h"
 #include "closure.h"
 #include "conflicts.h"
 #include "files.h"
 #include "getargs.h"
 #include "gram.h"
 #include "lalr.h"
+#include "lr0.h"
 #include "print.h"
-#include "print-xml.h"
 #include "reader.h"
 #include "reduce.h"
 #include "state.h"
@@ -45,7 +46,8 @@ struct escape_buf
   char *ptr;
   size_t size;
 };
-static struct escape_buf escape_bufs[3];
+enum { num_escape_bufs = 3 };
+static struct escape_buf escape_bufs[num_escape_bufs];
 
 
 /*--------------------------------.
@@ -55,7 +57,6 @@ static struct escape_buf escape_bufs[3];
 static void
 print_core (FILE *out, int level, state *s)
 {
-  size_t i;
   item_number *sitems = s->items;
   size_t snritems = s->nitems;
 
@@ -64,53 +65,44 @@ print_core (FILE *out, int level, state *s)
   sitems = itemset;
   snritems = nitemset;
 
-  if (!snritems) {
-    xml_puts (out, level, "<itemset/>");
-    return;
-  }
+  if (!snritems)
+    {
+      xml_puts (out, level, "<itemset/>");
+      return;
+    }
 
   xml_puts (out, level, "<itemset>");
 
-  for (i = 0; i < snritems; i++)
+  for (size_t i = 0; i < snritems; i++)
     {
       bool printed = false;
-      item_number *sp;
-      item_number *sp1;
-      rule_number r;
-
-      sp1 = sp = ritem + sitems[i];
-
-      while (*sp >= 0)
-	sp++;
-
-      r = item_number_as_rule_number (*sp);
-      sp = rules[r].rhs;
+      item_number *sp1 = ritem + sitems[i];
+      rule const *r = item_rule (sp1);
+      item_number *sp = r->rhs;
 
       /* Display the lookahead tokens?  */
       if (item_number_is_rule_number (*sp1))
-	{
-	  reductions *reds = s->reductions;
-	  int red = state_reduction_find (s, &rules[r]);
-	  /* Print item with lookaheads if there are. */
-	  if (reds->lookahead_tokens && red != -1)
-	    {
-	      xml_printf (out, level + 1,
-			  "<item rule-number=\"%d\" point=\"%d\">",
-			  rules[r].number, sp1 - sp);
-	      state_rule_lookahead_tokens_print_xml (s, &rules[r],
-						     out, level + 2);
-	      xml_puts (out, level + 1, "</item>");
-	      printed = true;
-	    }
-	}
+        {
+          reductions *reds = s->reductions;
+          int red = state_reduction_find (s, r);
+          /* Print item with lookaheads if there are. */
+          if (reds->lookahead_tokens && red != -1)
+            {
+              xml_printf (out, level + 1,
+                          "<item rule-number=\"%d\" point=\"%d\">",
+                          r->number, sp1 - sp);
+              state_rule_lookahead_tokens_print_xml (s, r,
+                                                     out, level + 2);
+              xml_puts (out, level + 1, "</item>");
+              printed = true;
+            }
+        }
 
       if (!printed)
-	{
-	  xml_printf (out, level + 1,
-		      "<item rule-number=\"%d\" point=\"%d\"/>",
-		      rules[r].number,
-		      sp1 - sp);
-	}
+        xml_printf (out, level + 1,
+                    "<item rule-number=\"%d\" point=\"%d\"/>",
+                    r->number,
+                    sp1 - sp);
     }
   xml_puts (out, level, "</itemset>");
 }
@@ -131,42 +123,43 @@ print_transitions (state *s, FILE *out, int level)
   for (i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i))
       {
-	n++;
+        n++;
       }
 
   /* Nothing to report. */
-  if (!n) {
-    xml_puts (out, level, "<transitions/>");
-    return;
-  }
+  if (!n)
+    {
+      xml_puts (out, level, "<transitions/>");
+      return;
+    }
 
   /* Report lookahead tokens and shifts.  */
   xml_puts (out, level, "<transitions>");
 
   for (i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-	&& TRANSITION_IS_SHIFT (trans, i))
+        && TRANSITION_IS_SHIFT (trans, i))
       {
-	symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
-	char const *tag = sym->tag;
-	state *s1 = trans->states[i];
+        symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
+        char const *tag = sym->tag;
+        state *s1 = trans->states[i];
 
-	xml_printf (out, level + 1,
-		    "<transition type=\"shift\" symbol=\"%s\" state=\"%d\"/>",
-		    xml_escape (tag), s1->number);
+        xml_printf (out, level + 1,
+                    "<transition type=\"shift\" symbol=\"%s\" state=\"%d\"/>",
+                    xml_escape (tag), s1->number);
       }
 
   for (i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-	&& !TRANSITION_IS_SHIFT (trans, i))
+        && !TRANSITION_IS_SHIFT (trans, i))
       {
-	symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
-	char const *tag = sym->tag;
-	state *s1 = trans->states[i];
+        symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
+        char const *tag = sym->tag;
+        state *s1 = trans->states[i];
 
-	xml_printf (out, level + 1,
-		    "<transition type=\"goto\" symbol=\"%s\" state=\"%d\"/>",
-		    xml_escape (tag), s1->number);
+        xml_printf (out, level + 1,
+                    "<transition type=\"goto\" symbol=\"%s\" state=\"%d\"/>",
+                    xml_escape (tag), s1->number);
       }
 
   xml_puts (out, level, "</transitions>");
@@ -189,46 +182,47 @@ print_errs (FILE *out, int level, state *s)
       count = true;
 
   /* Nothing to report. */
-  if (!count) {
-    xml_puts (out, level, "<errors/>");
-    return;
-  }
+  if (!count)
+    {
+      xml_puts (out, level, "<errors/>");
+      return;
+    }
 
   /* Report lookahead tokens and errors.  */
   xml_puts (out, level, "<errors>");
   for (i = 0; i < errp->num; ++i)
     if (errp->symbols[i])
       {
-	char const *tag = errp->symbols[i]->tag;
-	xml_printf (out, level + 1,
-		    "<error symbol=\"%s\">nonassociative</error>",
-		    xml_escape (tag));
+        char const *tag = errp->symbols[i]->tag;
+        xml_printf (out, level + 1,
+                    "<error symbol=\"%s\">nonassociative</error>",
+                    xml_escape (tag));
       }
   xml_puts (out, level, "</errors>");
 }
 
 
 /*-------------------------------------------------------------------------.
-| Report a reduction of RULE on LOOKAHEAD_TOKEN (which can be `default').  |
+| Report a reduction of RULE on LOOKAHEAD_TOKEN (which can be 'default').  |
 | If not ENABLED, the rule is masked by a shift or a reduce (S/R and       |
 | R/R conflicts).                                                          |
 `-------------------------------------------------------------------------*/
 
 static void
 print_reduction (FILE *out, int level, char const *lookahead_token,
-		 rule *r, bool enabled)
+                 rule *r, bool enabled)
 {
   if (r->number)
     xml_printf (out, level,
-		"<reduction symbol=\"%s\" rule=\"%d\" enabled=\"%s\"/>",
-		xml_escape (lookahead_token),
-		r->number,
-		enabled ? "true" : "false");
+                "<reduction symbol=\"%s\" rule=\"%d\" enabled=\"%s\"/>",
+                xml_escape (lookahead_token),
+                r->number,
+                enabled ? "true" : "false");
   else
     xml_printf (out, level,
-		"<reduction symbol=\"%s\" rule=\"accept\" enabled=\"%s\"/>",
-		xml_escape (lookahead_token),
-		enabled ? "true" : "false");
+                "<reduction symbol=\"%s\" rule=\"accept\" enabled=\"%s\"/>",
+                xml_escape (lookahead_token),
+                enabled ? "true" : "false");
 }
 
 
@@ -259,7 +253,7 @@ print_reductions (FILE *out, int level, state *s)
     bitset_set (no_reduce_set, TRANSITION_SYMBOL (trans, i));
   for (i = 0; i < s->errs->num; ++i)
     if (s->errs->symbols[i])
-      bitset_set (no_reduce_set, s->errs->symbols[i]->number);
+      bitset_set (no_reduce_set, s->errs->symbols[i]->content->number);
 
   if (default_reduction)
     report = true;
@@ -267,29 +261,30 @@ print_reductions (FILE *out, int level, state *s)
   if (reds->lookahead_tokens)
     for (i = 0; i < ntokens; i++)
       {
-	bool count = bitset_test (no_reduce_set, i);
+        bool count = bitset_test (no_reduce_set, i);
 
-	for (j = 0; j < reds->num; ++j)
-	  if (bitset_test (reds->lookahead_tokens[j], i))
-	    {
-	      if (! count)
-		{
-		  if (reds->rules[j] != default_reduction)
-		    report = true;
-		  count = true;
-		}
-	      else
-		{
-		  report = true;
-		}
-	    }
+        for (j = 0; j < reds->num; ++j)
+          if (bitset_test (reds->lookahead_tokens[j], i))
+            {
+              if (! count)
+                {
+                  if (reds->rules[j] != default_reduction)
+                    report = true;
+                  count = true;
+                }
+              else
+                {
+                  report = true;
+                }
+            }
       }
 
   /* Nothing to report. */
-  if (!report) {
-    xml_puts (out, level, "<reductions/>");
-    return;
-  }
+  if (!report)
+    {
+      xml_puts (out, level, "<reductions/>");
+      return;
+    }
 
   xml_puts (out, level, "<reductions>");
 
@@ -297,36 +292,36 @@ print_reductions (FILE *out, int level, state *s)
   if (reds->lookahead_tokens)
     for (i = 0; i < ntokens; i++)
       {
-	bool defaulted = false;
-	bool count = bitset_test (no_reduce_set, i);
+        bool defaulted = false;
+        bool count = bitset_test (no_reduce_set, i);
 
-	for (j = 0; j < reds->num; ++j)
-	  if (bitset_test (reds->lookahead_tokens[j], i))
-	    {
-	      if (! count)
-		{
-		  if (reds->rules[j] != default_reduction)
-		    print_reduction (out, level + 1, symbols[i]->tag,
-				     reds->rules[j], true);
-		  else
-		    defaulted = true;
-		  count = true;
-		}
-	      else
-		{
-		  if (defaulted)
-		    print_reduction (out, level + 1, symbols[i]->tag,
-				     default_reduction, true);
-		  defaulted = false;
-		  print_reduction (out, level + 1, symbols[i]->tag,
-				   reds->rules[j], false);
-		}
-	    }
+        for (j = 0; j < reds->num; ++j)
+          if (bitset_test (reds->lookahead_tokens[j], i))
+            {
+              if (! count)
+                {
+                  if (reds->rules[j] != default_reduction)
+                    print_reduction (out, level + 1, symbols[i]->tag,
+                                     reds->rules[j], true);
+                  else
+                    defaulted = true;
+                  count = true;
+                }
+              else
+                {
+                  if (defaulted)
+                    print_reduction (out, level + 1, symbols[i]->tag,
+                                     default_reduction, true);
+                  defaulted = false;
+                  print_reduction (out, level + 1, symbols[i]->tag,
+                                   reds->rules[j], false);
+                }
+            }
       }
 
   if (default_reduction)
     print_reduction (out, level + 1,
-		     "$default", default_reduction, true);
+                     "$default", default_reduction, true);
 
   xml_puts (out, level, "</reductions>");
 }
@@ -378,20 +373,18 @@ print_state (FILE *out, int level, state *s)
 static void
 print_grammar (FILE *out, int level)
 {
-  symbol_number i;
-
   fputc ('\n', out);
   xml_puts (out, level, "<grammar>");
   grammar_rules_print_xml (out, level);
 
   /* Terminals */
   xml_puts (out, level + 1, "<terminals>");
-  for (i = 0; i < max_user_token_number + 1; i++)
-    if (token_translations[i] != undeftoken->number)
+  for (symbol_number i = 0; i < max_user_token_number + 1; i++)
+    if (token_translations[i] != undeftoken->content->number)
       {
-	char const *tag = symbols[token_translations[i]]->tag;
-        int precedence = symbols[token_translations[i]]->prec;
-        assoc associativity = symbols[token_translations[i]]->assoc;
+        char const *tag = symbols[token_translations[i]]->tag;
+        int precedence = symbols[token_translations[i]]->content->prec;
+        assoc associativity = symbols[token_translations[i]]->content->assoc;
         xml_indent (out, level + 2);
         fprintf (out,
                  "<terminal symbol-number=\"%d\" token-number=\"%d\""
@@ -409,14 +402,14 @@ print_grammar (FILE *out, int level)
 
   /* Nonterminals */
   xml_puts (out, level + 1, "<nonterminals>");
-  for (i = ntokens; i < nsyms + nuseless_nonterminals; i++)
+  for (symbol_number i = ntokens; i < nsyms + nuseless_nonterminals; i++)
     {
       char const *tag = symbols[i]->tag;
       xml_printf (out, level + 2,
-		  "<nonterminal symbol-number=\"%d\" name=\"%s\""
+                  "<nonterminal symbol-number=\"%d\" name=\"%s\""
                   " usefulness=\"%s\"/>",
-		  i, xml_escape (tag),
-                  reduce_nonterminal_useless_in_grammar (i)
+                  i, xml_escape (tag),
+                  reduce_nonterminal_useless_in_grammar (symbols[i]->content)
                     ? "useless-in-grammar" : "useful");
     }
   xml_puts (out, level + 1, "</nonterminals>");
@@ -426,8 +419,7 @@ print_grammar (FILE *out, int level)
 void
 xml_indent (FILE *out, int level)
 {
-  int i;
-  for (i = 0; i < level; i++)
+  for (int i = 0; i < level; i++)
     fputs ("  ", out);
 }
 
@@ -458,14 +450,13 @@ xml_escape_string (struct escape_buf *buf, char const *str)
 {
   size_t len = strlen (str);
   size_t max_expansion = sizeof "&quot;" - 1;
-  char *p;
 
   if (buf->size <= max_expansion * len)
     {
       buf->size = max_expansion * len + 1;
       buf->ptr = x2realloc (buf->ptr, &buf->size);
     }
-  p = buf->ptr;
+  char *p = buf->ptr;
 
   for (; *str; str++)
     switch (*str)
@@ -496,12 +487,11 @@ xml_escape (char const *str)
 void
 print_xml (void)
 {
-  state_number i;
-  int level = 0;
-
   FILE *out = xfopen (spec_xml_file, "w");
 
   fputs ("<?xml version=\"1.0\"?>\n\n", out);
+
+  int level = 0;
   xml_printf (out, level,
               "<bison-xml-report version=\"%s\" bug-report=\"%s\""
               " url=\"%s\">",
@@ -511,28 +501,26 @@ print_xml (void)
 
   fputc ('\n', out);
   xml_printf (out, level + 1, "<filename>%s</filename>",
-	      xml_escape (grammar_file));
+              xml_escape (grammar_file));
 
   /* print grammar */
   print_grammar (out, level + 1);
 
-  new_closure (nritems);
-  no_reduce_set =  bitset_create (ntokens, BITSET_FIXED);
+  no_reduce_set = bitset_create (ntokens, BITSET_FIXED);
 
   /* print automaton */
   fputc ('\n', out);
   xml_puts (out, level + 1, "<automaton>");
-  for (i = 0; i < nstates; i++)
+  for (state_number i = 0; i < nstates; i++)
     print_state (out, level + 2, states[i]);
   xml_puts (out, level + 1, "</automaton>");
 
   bitset_free (no_reduce_set);
-  free_closure ();
 
   xml_puts (out, 0, "</bison-xml-report>");
 
-  free (escape_bufs[0].ptr);
-  free (escape_bufs[1].ptr);
+  for (int i = 0; i < num_escape_bufs; ++i)
+    free (escape_bufs[i].ptr);
 
   xfclose (out);
 }

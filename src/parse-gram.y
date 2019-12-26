@@ -1,6 +1,6 @@
-%{/* Bison Grammar Parser                             -*- C -*-
+/* Bison Grammar Parser                             -*- C -*-
 
-   Copyright (C) 2002-2012 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015, 2018-2019 Free Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -17,117 +17,132 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#include <config.h>
-#include "system.h"
-
-#include "c-ctype.h"
-#include "complain.h"
-#include "conflicts.h"
-#include "files.h"
-#include "getargs.h"
-#include "gram.h"
-#include "muscle-tab.h"
-#include "named-ref.h"
-#include "quotearg.h"
-#include "reader.h"
-#include "symlist.h"
-#include "scan-gram.h"
-#include "scan-code.h"
-#include "xmemdup0.h"
-
-#define YYLLOC_DEFAULT(Current, Rhs, N)  (Current) = lloc_default (Rhs, N)
-static YYLTYPE lloc_default (YYLTYPE const *, int);
-
-#define YY_LOCATION_PRINT(File, Loc) \
-	  location_print (File, Loc)
-
-static void version_check (location const *loc, char const *version);
-
-/* Request detailed syntax error messages, and pass them to GRAM_ERROR.
-   FIXME: depends on the undocumented availability of YYLLOC.  */
-#undef  yyerror
-#define yyerror(Msg) \
-	gram_error (&yylloc, Msg)
-static void gram_error (location const *, char const *);
-
-static char const *char_name (char);
-
-/** Add a lex-param or a parse-param.
- *
- * \param type  \a lex_param or \a parse_param
- * \param decl  the formal argument
- * \param loc   the location in the source.
- */
-static void add_param (char const *type, char *decl, location loc);
-
-
-static symbol_class current_class = unknown_sym;
-static uniqstr current_type = NULL;
-static symbol *current_lhs_symbol;
-static location current_lhs_location;
-static named_ref *current_lhs_named_ref;
-static int current_prec = 0;
-
-/** Set the new current left-hand side symbol, possibly common
- * to several right-hand side parts of rule.
- */
-static
-void
-current_lhs(symbol *sym, location loc, named_ref *ref)
+%code requires
 {
-  current_lhs_symbol = sym;
-  current_lhs_location = loc;
-  /* In order to simplify memory management, named references for lhs
-     are always assigned by deep copy into the current symbol_list
-     node.  This is because a single named-ref in the grammar may
-     result in several uses when the user factors lhs between several
-     rules using "|".  Therefore free the parser's original copy.  */
-  free (current_lhs_named_ref);
-  current_lhs_named_ref = ref;
+  #include "symlist.h"
+  #include "symtab.h"
 }
 
+%code top
+{
+  /* On column 0 to please syntax-check.  */
+#include <config.h>
+}
 
-#define YYTYPE_INT16 int_fast16_t
-#define YYTYPE_INT8 int_fast8_t
-#define YYTYPE_UINT16 uint_fast16_t
-#define YYTYPE_UINT8 uint_fast8_t
-%}
+%code
+{
+  #include "system.h"
 
-%debug
-%define api.prefix "gram_"
-%define api.pure
+  #include <c-ctype.h>
+  #include <errno.h>
+  #include <intprops.h>
+  #include <quotearg.h>
+  #include <vasnprintf.h>
+  #include <xmemdup0.h>
+
+  #include "complain.h"
+  #include "conflicts.h"
+  #include "files.h"
+  #include "getargs.h"
+  #include "gram.h"
+  #include "named-ref.h"
+  #include "reader.h"
+  #include "scan-code.h"
+  #include "scan-gram.h"
+
+  static int current_prec = 0;
+  static location current_lhs_loc;
+  static named_ref *current_lhs_named_ref;
+  static symbol *current_lhs_symbol;
+  static symbol_class current_class = unknown_sym;
+
+  /** Set the new current left-hand side symbol, possibly common
+   * to several right-hand side parts of rule.
+   */
+  static void current_lhs (symbol *sym, location loc, named_ref *ref);
+
+  #define YYLLOC_DEFAULT(Current, Rhs, N)         \
+    (Current) = lloc_default (Rhs, N)
+  static YYLTYPE lloc_default (YYLTYPE const *, int);
+
+  #define YY_LOCATION_PRINT(File, Loc)            \
+    location_print (Loc, File)
+
+  /* Strip initial '{' and final '}' (must be first and last characters).
+     Return the result.  */
+  static char *strip_braces (char *code);
+
+  /* Convert CODE by calling code_props_plain_init if PLAIN, otherwise
+     code_props_symbol_action_init.  Call
+     gram_scanner_last_string_free to release the latest string from
+     the scanner (should be CODE). */
+  static char const *translate_code (char *code, location loc, bool plain);
+
+  /* Convert CODE by calling code_props_plain_init after having
+     stripped the first and last characters (expected to be '{', and
+     '}').  Call gram_scanner_last_string_free to release the latest
+     string from the scanner (should be CODE). */
+  static char const *translate_code_braceless (char *code, location loc);
+
+  /* Handle a %error-verbose directive.  */
+  static void handle_error_verbose (location const *loc, char const *directive);
+
+  /* Handle a %file-prefix directive.  */
+  static void handle_file_prefix (location const *loc,
+                                  location const *dir_loc,
+                                  char const *directive, char const *value);
+
+  /* Handle a %name-prefix directive.  */
+  static void handle_name_prefix (location const *loc,
+                                  char const *directive, char const *value);
+
+  /* Handle a %pure-parser directive.  */
+  static void handle_pure_parser (location const *loc, char const *directive);
+
+  /* Handle a %require directive.  */
+  static void handle_require (location const *loc, char const *version);
+
+  /* Handle a %skeleton directive.  */
+  static void handle_skeleton (location const *loc, char const *skel);
+
+  /* Handle a %yacc directive.  */
+  static void handle_yacc (location const *loc);
+
+  /* Implementation of yyerror.  */
+  static void gram_error (location const *, char const *);
+
+  /* A string that describes a char (e.g., 'a' -> "'a'").  */
+  static char const *char_name (char);
+
+  /* Add style to semantic values in traces.  */
+  static void tron (FILE *yyo);
+  static void troff (FILE *yyo);
+}
+
+%define api.header.include {"parse-gram.h"}
+%define api.prefix {gram_}
+%define api.pure full
+%define api.token.raw
+%define api.value.type union
+%define locations
+%define parse.error verbose
 %define parse.lac full
+%define parse.trace
 %defines
-%error-verbose
 %expect 0
-%locations
 %verbose
 
 %initial-action
 {
   /* Bison's grammar can initial empty locations, hence a default
      location is needed. */
-  boundary_set (&@$.start, current_file, 1, 1);
-  boundary_set (&@$.end, current_file, 1, 1);
+  boundary_set (&@$.start, grammar_file, 1, 1, 1);
+  boundary_set (&@$.end, grammar_file, 1, 1, 1);
 }
-
-%union
-{
-  symbol *symbol;
-  symbol_list *list;
-  int integer;
-  char const *chars;
-  char *code;
-  assoc assoc;
-  uniqstr uniqstr;
-  unsigned char character;
-  named_ref *named_ref;
-};
 
 /* Define the tokens together with their human representation.  */
 %token GRAM_EOF 0 "end of file"
 %token STRING     "string"
-%token INT        "integer"
 
 %token PERCENT_TOKEN       "%token"
 %token PERCENT_NTERM       "%nterm"
@@ -139,11 +154,11 @@ current_lhs(symbol *sym, location loc, named_ref *ref)
 %token PERCENT_LEFT        "%left"
 %token PERCENT_RIGHT       "%right"
 %token PERCENT_NONASSOC    "%nonassoc"
+%token PERCENT_PRECEDENCE  "%precedence"
 
 %token PERCENT_PREC          "%prec"
 %token PERCENT_DPREC         "%dprec"
 %token PERCENT_MERGE         "%merge"
-
 
 /*----------------------.
 | Global Declarations.  |
@@ -151,28 +166,25 @@ current_lhs(symbol *sym, location loc, named_ref *ref)
 
 %token
   PERCENT_CODE            "%code"
-  PERCENT_DEBUG           "%debug"
   PERCENT_DEFAULT_PREC    "%default-prec"
   PERCENT_DEFINE          "%define"
   PERCENT_DEFINES         "%defines"
   PERCENT_ERROR_VERBOSE   "%error-verbose"
   PERCENT_EXPECT          "%expect"
-  PERCENT_EXPECT_RR	  "%expect-rr"
+  PERCENT_EXPECT_RR       "%expect-rr"
+  PERCENT_FLAG            "%<flag>"
   PERCENT_FILE_PREFIX     "%file-prefix"
   PERCENT_GLR_PARSER      "%glr-parser"
   PERCENT_INITIAL_ACTION  "%initial-action"
   PERCENT_LANGUAGE        "%language"
-  PERCENT_LEX_PARAM       "%lex-param"
-  PERCENT_LOCATIONS       "%locations"
   PERCENT_NAME_PREFIX     "%name-prefix"
   PERCENT_NO_DEFAULT_PREC "%no-default-prec"
   PERCENT_NO_LINES        "%no-lines"
   PERCENT_NONDETERMINISTIC_PARSER
-			  "%nondeterministic-parser"
+                          "%nondeterministic-parser"
   PERCENT_OUTPUT          "%output"
-  PERCENT_PARSE_PARAM     "%parse-param"
   PERCENT_PURE_PARSER     "%pure-parser"
-  PERCENT_REQUIRE	  "%require"
+  PERCENT_REQUIRE         "%require"
   PERCENT_SKELETON        "%skeleton"
   PERCENT_START           "%start"
   PERCENT_TOKEN_TABLE     "%token-table"
@@ -181,8 +193,10 @@ current_lhs(symbol *sym, location loc, named_ref *ref)
 ;
 
 %token BRACED_CODE     "{...}"
+%token BRACED_PREDICATE "%?{...}"
 %token BRACKETED_ID    "[identifier]"
-%token CHAR            "char"
+%token CHAR            "character literal"
+%token COLON           ":"
 %token EPILOGUE        "epilogue"
 %token EQUAL           "="
 %token ID              "identifier"
@@ -191,39 +205,88 @@ current_lhs(symbol *sym, location loc, named_ref *ref)
 %token PIPE            "|"
 %token PROLOGUE        "%{...%}"
 %token SEMICOLON       ";"
-%token TYPE            "type"
-%token TYPE_TAG_ANY    "<*>"
-%token TYPE_TAG_NONE   "<>"
+%token TAG             "<tag>"
+%token TAG_ANY         "<*>"
+%token TAG_NONE        "<>"
 
-%type <character> CHAR
-%printer { fputs (char_name ($$), stderr); } CHAR
+ /* Experimental feature, don't rely on it.  */
+%code pre-printer  {tron (yyo);}
+%code post-printer {troff (yyo);}
 
-/* braceless is not to be used for rule or symbol actions, as it
-   calls code_props_plain_init.  */
-%type <chars> STRING "%{...%}" EPILOGUE braceless content.opt
-%type <code> "{...}"
-%printer { fputs (quotearg_style (c_quoting_style, $$), stderr); }
-	 STRING
-%printer { fprintf (stderr, "{\n%s\n}", $$); }
-	 braceless content.opt "{...}" "%{...%}" EPILOGUE
+%type <unsigned char> CHAR
+%printer { fputs (char_name ($$), yyo); } <unsigned char>
 
-%type <uniqstr> BRACKETED_ID ID ID_COLON TYPE variable
-%printer { fputs ($$, stderr); } <uniqstr>
-%printer { fprintf (stderr, "[%s]", $$); } BRACKETED_ID
-%printer { fprintf (stderr, "%s:", $$); } ID_COLON
-%printer { fprintf (stderr, "<%s>", $$); } TYPE
+%type <char*> "{...}" "%?{...}" "%{...%}" EPILOGUE STRING
+%printer { fputs ($$, yyo); }  <char*>
 
-%type <integer> INT
-%printer { fprintf (stderr, "%d", $$); } <integer>
+%type <uniqstr>
+  BRACKETED_ID ID ID_COLON
+  PERCENT_ERROR_VERBOSE PERCENT_FILE_PREFIX PERCENT_FLAG PERCENT_NAME_PREFIX
+  PERCENT_PURE_PARSER
+  TAG tag tag.opt variable
+%printer { fputs ($$, yyo); } <uniqstr>
+%printer { fprintf (yyo, "[%s]", $$); } BRACKETED_ID
+%printer { fprintf (yyo, "%s:", $$); } ID_COLON
+%printer { fprintf (yyo, "%%%s", $$); } PERCENT_FLAG
+%printer { fprintf (yyo, "<%s>", $$); } TAG tag
 
-%type <symbol> id id_colon string_as_id symbol symbol.prec
-%printer { fprintf (stderr, "%s", $$->tag); } <symbol>
-%printer { fprintf (stderr, "%s:", $$->tag); } id_colon
+%token <int> INT "integer"
+%printer { fprintf (yyo, "%d", $$); } <int>
+
+%type <symbol*> id id_colon string_as_id symbol token_decl token_decl_for_prec
+%printer { fprintf (yyo, "%s", $$ ? $$->tag : "<NULL>"); } <symbol*>
+%printer { fprintf (yyo, "%s:", $$->tag); } id_colon
 
 %type <assoc> precedence_declarator
-%type <list>  symbols.1 symbols.prec generic_symlist generic_symlist_item
-%type <named_ref> named_ref.opt
 
+%destructor { symbol_list_free ($$); } <symbol_list*>
+%printer { symbol_list_syms_print ($$, yyo); } <symbol_list*>
+
+%type <named_ref*> named_ref.opt
+
+/*---------.
+| %param.  |
+`---------*/
+%code requires
+{
+  typedef enum
+  {
+    param_none   = 0,
+    param_lex    = 1 << 0,
+    param_parse  = 1 << 1,
+    param_both   = param_lex | param_parse
+  } param_type;
+};
+%code
+{
+  /** Add a lex-param and/or a parse-param.
+   *
+   * \param type  where to push this formal argument.
+   * \param decl  the formal argument.  Destroyed.
+   * \param loc   the location in the source.
+   */
+  static void add_param (param_type type, char *decl, location loc);
+  static param_type current_param = param_none;
+};
+%token <param_type> PERCENT_PARAM "%param";
+%printer
+{
+  switch ($$)
+    {
+#define CASE(In, Out)                                           \
+      case param_ ## In: fputs ("%" #Out, yyo); break
+      CASE (lex,   lex-param);
+      CASE (parse, parse-param);
+      CASE (both,  param);
+#undef CASE
+      case param_none: aver (false); break;
+    }
+} <param_type>;
+
+
+                     /*==========\
+                     | Grammar.  |
+                     \==========*/
 %%
 
 input:
@@ -231,12 +294,12 @@ input:
 ;
 
 
-	/*------------------------------------.
-	| Declarations: before the first %%.  |
-	`------------------------------------*/
+        /*------------------------------------.
+        | Declarations: before the first %%.  |
+        `------------------------------------*/
 
 prologue_declarations:
-  /* Nothing */
+  %empty
 | prologue_declarations prologue_declaration
 ;
 
@@ -244,31 +307,29 @@ prologue_declaration:
   grammar_declaration
 | "%{...%}"
     {
-      code_props plain_code;
-      code_props_plain_init (&plain_code, $1, @1);
-      code_props_translate_code (&plain_code);
-      gram_scanner_last_string_free ();
       muscle_code_grow (union_seen ? "post_prologue" : "pre_prologue",
-                        plain_code.code, @1);
+                        translate_code ($1, @1, true), @1);
       code_scanner_last_string_free ();
     }
-| "%debug"                         { debug = true; }
-| "%define" variable content.opt
+| "%<flag>"
     {
-      muscle_percent_define_insert ($2, @2, $3,
+      muscle_percent_define_ensure ($1, @1, true);
+    }
+| "%define" variable value
+    {
+      muscle_percent_define_insert ($2, @$, $3.kind, $3.chars,
                                     MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE);
     }
 | "%defines"                       { defines_flag = true; }
 | "%defines" STRING
     {
       defines_flag = true;
-      spec_defines_file = xstrdup ($2);
+      spec_header_file = xstrdup ($2);
     }
-| "%error-verbose"                 { error_verbose = true; }
+| "%error-verbose"                 { handle_error_verbose (&@$, $1); }
 | "%expect" INT                    { expected_sr_conflicts = $2; }
-| "%expect-rr" INT		   { expected_rr_conflicts = $2; }
-| "%file-prefix" STRING            { spec_file_prefix = $2; }
-| "%file-prefix" "=" STRING        { spec_file_prefix = $3; } /* deprecated */
+| "%expect-rr" INT                 { expected_rr_conflicts = $2; }
+| "%file-prefix" STRING            { handle_file_prefix (&@$, &@1, $1, $2); }
 | "%glr-parser"
     {
       nondeterministic_parser = true;
@@ -276,97 +337,49 @@ prologue_declaration:
     }
 | "%initial-action" "{...}"
     {
-      code_props action;
-      code_props_symbol_action_init (&action, $2, @2);
-      code_props_translate_code (&action);
-      gram_scanner_last_string_free ();
-      muscle_code_grow ("initial_action", action.code, @2);
+      muscle_code_grow ("initial_action", translate_code ($2, @2, false), @2);
       code_scanner_last_string_free ();
     }
-| "%language" STRING		{ language_argmatch ($2, grammar_prio, @1); }
-| "%lex-param" "{...}"		{ add_param ("lex_param", $2, @2); }
-| "%locations"                  { locations_flag = true; }
-| "%name-prefix" STRING         { spec_name_prefix = $2; }
-| "%name-prefix" "=" STRING     { spec_name_prefix = $3; } /* deprecated */
+| "%language" STRING            { language_argmatch ($2, grammar_prio, @1); }
+| "%name-prefix" STRING         { handle_name_prefix (&@$, $1, $2); }
 | "%no-lines"                   { no_lines_flag = true; }
-| "%nondeterministic-parser"	{ nondeterministic_parser = true; }
+| "%nondeterministic-parser"    { nondeterministic_parser = true; }
 | "%output" STRING              { spec_outfile = $2; }
-| "%output" "=" STRING          { spec_outfile = $3; }  /* deprecated */
-| "%parse-param" "{...}"	{ add_param ("parse_param", $2, @2); }
-| "%pure-parser"
-    {
-      /* %pure-parser is deprecated in favor of `%define api.pure', so use
-         `%define api.pure' in a backward-compatible manner here.  First, don't
-         complain if %pure-parser is specified multiple times.  */
-      if (!muscle_find_const ("percent_define(api.pure)"))
-        muscle_percent_define_insert ("api.pure", @1, "",
-                                      MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE);
-      /* In all cases, use api.pure now so that the backend doesn't complain if
-         the skeleton ignores api.pure, but do warn now if there's a previous
-         conflicting definition from an actual %define.  */
-      if (!muscle_percent_define_flag_if ("api.pure"))
-        muscle_percent_define_insert ("api.pure", @1, "",
-                                      MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE);
-    }
-| "%require" STRING             { version_check (&@2, $2); }
-| "%skeleton" STRING
-    {
-      char const *skeleton_user = $2;
-      if (mbschr (skeleton_user, '/'))
-        {
-          size_t dir_length = strlen (current_file);
-          char *skeleton_build;
-          while (dir_length && current_file[dir_length - 1] != '/')
-            --dir_length;
-          while (dir_length && current_file[dir_length - 1] == '/')
-            --dir_length;
-          skeleton_build =
-            xmalloc (dir_length + 1 + strlen (skeleton_user) + 1);
-          if (dir_length > 0)
-            {
-              memcpy (skeleton_build, current_file, dir_length);
-              skeleton_build[dir_length++] = '/';
-            }
-          strcpy (skeleton_build + dir_length, skeleton_user);
-          skeleton_user = uniqstr_new (skeleton_build);
-          free (skeleton_build);
-        }
-      skeleton_arg (skeleton_user, grammar_prio, @1);
-    }
+| "%param" { current_param = $1; } params { current_param = param_none; }
+| "%pure-parser"                { handle_pure_parser (&@$, $1); }
+| "%require" STRING             { handle_require (&@2, $2); }
+| "%skeleton" STRING            { handle_skeleton (&@2, $2); }
 | "%token-table"                { token_table_flag = true; }
 | "%verbose"                    { report_flag |= report_states; }
-| "%yacc"                       { yacc_flag = true; }
+| "%yacc"                       { handle_yacc (&@$); }
+| error ";"                     { current_class = unknown_sym; yyerrok; }
 | /*FIXME: Err?  What is this horror doing here? */ ";"
 ;
 
+params:
+   params "{...}"  { add_param (current_param, $2, @2); }
+| "{...}"          { add_param (current_param, $1, @1); }
+;
+
+
+/*----------------------.
+| grammar_declaration.  |
+`----------------------*/
+
 grammar_declaration:
-  precedence_declaration
-| symbol_declaration
+  symbol_declaration
 | "%start" symbol
     {
       grammar_start_symbol_set ($2, @2);
     }
-| "%destructor" "{...}" generic_symlist
+| code_props_type "{...}" generic_symlist
     {
       code_props code;
       code_props_symbol_action_init (&code, $2, @2);
       code_props_translate_code (&code);
       {
-        symbol_list *list;
-        for (list = $3; list; list = list->next)
-          symbol_list_destructor_set (list, &code);
-        symbol_list_free ($3);
-      }
-    }
-| "%printer" "{...}" generic_symlist
-    {
-      code_props code;
-      code_props_symbol_action_init (&code, $2, @2);
-      code_props_translate_code (&code);
-      {
-        symbol_list *list;
-        for (list = $3; list; list = list->next)
-          symbol_list_printer_set (list, &code);
+        for (symbol_list *list = $3; list; list = list->next)
+          symbol_list_code_props_set (list, $1, &code);
         symbol_list_free ($3);
       }
     }
@@ -378,167 +391,244 @@ grammar_declaration:
     {
       default_prec = false;
     }
-| "%code" braceless
+| "%code" "{...}"
     {
       /* Do not invoke muscle_percent_code_grow here since it invokes
          muscle_user_name_list_grow.  */
-      muscle_code_grow ("percent_code()", $2, @2);
+      muscle_code_grow ("percent_code()",
+                        translate_code_braceless ($2, @2), @2);
       code_scanner_last_string_free ();
     }
-| "%code" ID braceless
+| "%code" ID "{...}"
     {
-      muscle_percent_code_grow ($2, @2, $3, @3);
+      muscle_percent_code_grow ($2, @2, translate_code_braceless ($3, @3), @3);
       code_scanner_last_string_free ();
     }
 ;
 
+%type <code_props_type> code_props_type;
+%printer { fprintf (yyo, "%s", code_props_type_string ($$)); } <code_props_type>;
+code_props_type:
+  "%destructor"  { $$ = destructor; }
+| "%printer"     { $$ = printer; }
+;
 
-/*----------*
- | %union.  |
- *----------*/
+/*---------.
+| %union.  |
+`---------*/
 
 %token PERCENT_UNION "%union";
 
 union_name:
-  /* Nothing. */ {}
-| ID             { muscle_code_grow ("union_name", $1, @1); }
+  %empty {}
+| ID     { muscle_percent_define_insert ("api.value.union.name",
+                                         @1, muscle_keyword, $1,
+                                         MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE); }
 ;
 
 grammar_declaration:
-  "%union" union_name braceless
+  "%union" union_name "{...}"
     {
       union_seen = true;
-      muscle_code_grow ("stype", $3, @3);
+      muscle_code_grow ("union_members", translate_code_braceless ($3, @3), @3);
       code_scanner_last_string_free ();
     }
 ;
 
 
-
-
+%type <symbol_list*> nterm_decls symbol_decls symbol_decl.1
+      token_decls token_decls_for_prec
+      token_decl.1 token_decl_for_prec.1;
 symbol_declaration:
-  "%nterm" { current_class = nterm_sym; } symbol_defs.1
+  "%nterm" { current_class = nterm_sym; } nterm_decls[syms]
     {
       current_class = unknown_sym;
-      current_type = NULL;
+      symbol_list_free ($syms);
     }
-| "%token" { current_class = token_sym; } symbol_defs.1
+| "%token" { current_class = token_sym; } token_decls[syms]
     {
       current_class = unknown_sym;
-      current_type = NULL;
+      symbol_list_free ($syms);
     }
-| "%type" TYPE symbols.1
+| "%type" symbol_decls[syms]
     {
-      symbol_list *list;
-      tag_seen = true;
-      for (list = $3; list; list = list->next)
-	symbol_type_set (list->content.sym, $2, @2);
-      symbol_list_free ($3);
+      symbol_list_free ($syms);
     }
-;
-
-precedence_declaration:
-  precedence_declarator type.opt symbols.prec
+| precedence_declarator token_decls_for_prec[syms]
     {
-      symbol_list *list;
       ++current_prec;
-      for (list = $3; list; list = list->next)
-	{
-	  symbol_type_set (list->content.sym, current_type, @2);
-	  symbol_precedence_set (list->content.sym, current_prec, $1, @1);
-	}
-      symbol_list_free ($3);
-      current_type = NULL;
+      for (symbol_list *list = $syms; list; list = list->next)
+        symbol_precedence_set (list->content.sym, current_prec, $1, @1);
+      symbol_list_free ($syms);
     }
 ;
 
 precedence_declarator:
-  "%left"     { $$ = left_assoc; }
-| "%right"    { $$ = right_assoc; }
-| "%nonassoc" { $$ = non_assoc; }
+  "%left"       { $$ = left_assoc; }
+| "%right"      { $$ = right_assoc; }
+| "%nonassoc"   { $$ = non_assoc; }
+| "%precedence" { $$ = precedence_assoc; }
 ;
 
-type.opt:
-  /* Nothing. */ { current_type = NULL; }
-| TYPE           { current_type = $1; tag_seen = true; }
+tag.opt:
+  %empty { $$ = NULL; }
+| TAG    { $$ = $1; }
 ;
 
-/* Just like symbols.1 but accept INT for the sake of POSIX.  */
-symbols.prec:
-  symbol.prec
-    { $$ = symbol_list_sym_new ($1, @1); }
-| symbols.prec symbol.prec
-    { $$ = symbol_list_prepend ($1, symbol_list_sym_new ($2, @2)); }
-;
-
-symbol.prec:
-    symbol { $$ = $1; }
-  | symbol INT { $$ = $1; symbol_user_token_number_set ($1, $2, @2); }
-  ;
-
-/* One or more symbols to be %typed. */
-symbols.1:
-  symbol
-    { $$ = symbol_list_sym_new ($1, @1); }
-| symbols.1 symbol
-    { $$ = symbol_list_prepend ($1, symbol_list_sym_new ($2, @2)); }
-;
-
+%type <symbol_list*> generic_symlist generic_symlist_item;
 generic_symlist:
-  generic_symlist_item { $$ = $1; }
-| generic_symlist generic_symlist_item { $$ = symbol_list_prepend ($1, $2); }
+  generic_symlist_item
+| generic_symlist generic_symlist_item   { $$ = symbol_list_append ($1, $2); }
 ;
 
 generic_symlist_item:
-  symbol            { $$ = symbol_list_sym_new ($1, @1); }
-| TYPE              { $$ = symbol_list_type_new ($1, @1); }
-| "<*>"             { $$ = symbol_list_default_tagged_new (@1); }
-| "<>"             { $$ = symbol_list_default_tagless_new (@1); }
+  symbol    { $$ = symbol_list_sym_new ($1, @1); }
+| tag       { $$ = symbol_list_type_new ($1, @1); }
 ;
 
-/* One token definition.  */
-symbol_def:
-  TYPE
-     {
-       current_type = $1;
-       tag_seen = true;
-     }
-| id
-     {
-       symbol_class_set ($1, current_class, @1, true);
-       symbol_type_set ($1, current_type, @1);
-     }
-| id INT
+tag:
+  TAG
+| "<*>" { $$ = uniqstr_new ("*"); }
+| "<>"  { $$ = uniqstr_new (""); }
+;
+
+/*-----------------------.
+| nterm_decls (%nterm).  |
+`-----------------------*/
+
+// A non empty list of possibly tagged symbols for %nterm.
+//
+// Can easily be defined like symbol_decls but restricted to ID, but
+// using token_decls allows to reudce the number of rules, and also to
+// make nicer error messages on "%nterm 'a'" or '%nterm FOO "foo"'.
+nterm_decls:
+  token_decls
+;
+
+/*-----------------------------------.
+| token_decls (%token, and %nterm).  |
+`-----------------------------------*/
+
+// A non empty list of possibly tagged symbols for %token or %nterm.
+token_decls:
+  token_decl.1[syms]
     {
-      symbol_class_set ($1, current_class, @1, true);
-      symbol_type_set ($1, current_type, @1);
-      symbol_user_token_number_set ($1, $2, @2);
+      $$ = $syms;
     }
-| id string_as_id
+| TAG token_decl.1[syms]
     {
-      symbol_class_set ($1, current_class, @1, true);
-      symbol_type_set ($1, current_type, @1);
-      symbol_make_alias ($1, $2, @$);
+      $$ = symbol_list_type_set ($syms, $TAG, @TAG);
     }
-| id INT string_as_id
+| token_decls TAG token_decl.1[syms]
     {
-      symbol_class_set ($1, current_class, @1, true);
-      symbol_type_set ($1, current_type, @1);
-      symbol_user_token_number_set ($1, $2, @2);
-      symbol_make_alias ($1, $3, @$);
+      $$ = symbol_list_append ($1, symbol_list_type_set ($syms, $TAG, @TAG));
     }
 ;
 
-/* One or more symbol definitions. */
-symbol_defs.1:
-  symbol_def
-| symbol_defs.1 symbol_def
+// One or more symbol declarations for %token or %nterm.
+token_decl.1:
+  token_decl                { $$ = symbol_list_sym_new ($1, @1); }
+| token_decl.1 token_decl   { $$ = symbol_list_append ($1, symbol_list_sym_new ($2, @2)); }
+
+// One symbol declaration for %token or %nterm.
+token_decl:
+  id int.opt[num] string_as_id.opt[alias]
+    {
+      $$ = $id;
+      symbol_class_set ($id, current_class, @id, true);
+      if (0 <= $num)
+        symbol_user_token_number_set ($id, $num, @num);
+      if ($alias)
+        symbol_make_alias ($id, $alias, @alias);
+    }
+;
+
+%type <int> int.opt;
+int.opt:
+  %empty  { $$ = -1; }
+| INT
+;
+
+/*-------------------------------------.
+| token_decls_for_prec (%left, etc.).  |
+`-------------------------------------*/
+
+// A non empty list of possibly tagged tokens for precedence declaration.
+//
+// Similar to %token (token_decls), but in '%left FOO 1 "foo"', it treats
+// FOO and "foo" as two different symbols instead of aliasing them.
+token_decls_for_prec:
+  token_decl_for_prec.1[syms]
+    {
+      $$ = $syms;
+    }
+| TAG token_decl_for_prec.1[syms]
+    {
+      $$ = symbol_list_type_set ($syms, $TAG, @TAG);
+    }
+| token_decls_for_prec TAG token_decl_for_prec.1[syms]
+    {
+      $$ = symbol_list_append ($1, symbol_list_type_set ($syms, $TAG, @TAG));
+    }
+;
+
+// One or more token declarations for precedence declaration.
+token_decl_for_prec.1:
+  token_decl_for_prec
+    { $$ = symbol_list_sym_new ($1, @1); }
+| token_decl_for_prec.1 token_decl_for_prec
+    { $$ = symbol_list_append ($1, symbol_list_sym_new ($2, @2)); }
+
+// One token declaration for precedence declaration.
+token_decl_for_prec:
+  id int.opt[num]
+    {
+      $$ = $id;
+      symbol_class_set ($id, token_sym, @id, false);
+      if (0 <= $num)
+        symbol_user_token_number_set ($id, $num, @num);
+    }
+| string_as_id
 ;
 
 
-	/*------------------------------------------.
-	| The grammar section: between the two %%.  |
-	`------------------------------------------*/
+/*-----------------------------------.
+| symbol_decls (argument of %type).  |
+`-----------------------------------*/
+
+// A non empty list of typed symbols (for %type).
+symbol_decls:
+  symbol_decl.1[syms]
+    {
+      $$ = $syms;
+    }
+| TAG symbol_decl.1[syms]
+    {
+      $$ = symbol_list_type_set ($syms, $TAG, @TAG);
+    }
+| symbol_decls TAG symbol_decl.1[syms]
+    {
+      $$ = symbol_list_append ($1, symbol_list_type_set ($syms, $TAG, @TAG));
+    }
+;
+
+// One or more token declarations (for %type).
+symbol_decl.1:
+  symbol
+    {
+      symbol_class_set ($symbol, pct_type_sym, @symbol, false);
+      $$ = symbol_list_sym_new ($symbol, @symbol);
+    }
+  | symbol_decl.1 symbol
+    {
+      symbol_class_set ($symbol, pct_type_sym, @symbol, false);
+      $$ = symbol_list_append ($1, symbol_list_sym_new ($symbol, @symbol));
+    }
+;
+
+        /*------------------------------------------.
+        | The grammar section: between the two %%.  |
+        `------------------------------------------*/
 
 grammar:
   rules_or_grammar_declaration
@@ -557,81 +647,89 @@ rules_or_grammar_declaration:
 ;
 
 rules:
-  id_colon named_ref.opt { current_lhs ($1, @1, $2); } rhses.1
-  {
-    /* Free the current lhs. */
-    current_lhs (0, @1, 0);
-  }
+  id_colon named_ref.opt { current_lhs ($1, @1, $2); } ":" rhses.1
+    {
+      /* Free the current lhs. */
+      current_lhs (0, @1, 0);
+    }
 ;
 
 rhses.1:
-  rhs                { grammar_current_rule_end (@1); }
-| rhses.1 "|" rhs    { grammar_current_rule_end (@3); }
+  rhs                { grammar_current_rule_end (@rhs); }
+| rhses.1 "|" rhs    { grammar_current_rule_end (@rhs); }
 | rhses.1 ";"
 ;
 
+%token PERCENT_EMPTY "%empty";
 rhs:
-  /* Nothing.  */
-    { grammar_current_rule_begin (current_lhs_symbol, current_lhs_location,
-				  current_lhs_named_ref); }
+  %empty
+    { grammar_current_rule_begin (current_lhs_symbol, current_lhs_loc,
+                                  current_lhs_named_ref); }
 | rhs symbol named_ref.opt
     { grammar_current_rule_symbol_append ($2, @2, $3); }
-| rhs "{...}" named_ref.opt
-    { grammar_current_rule_action_append ($2, @2, $3); }
+| rhs tag.opt "{...}"[act] named_ref.opt[name]
+    { grammar_current_rule_action_append ($act, @act, $name, $[tag.opt]); }
+| rhs "%?{...}"
+    { grammar_current_rule_predicate_append ($2, @2); }
+| rhs "%empty"
+    { grammar_current_rule_empty_set (@2); }
 | rhs "%prec" symbol
     { grammar_current_rule_prec_set ($3, @3); }
 | rhs "%dprec" INT
     { grammar_current_rule_dprec_set ($3, @3); }
-| rhs "%merge" TYPE
+| rhs "%merge" TAG
     { grammar_current_rule_merge_set ($3, @3); }
+| rhs "%expect" INT
+    { grammar_current_rule_expect_sr ($3, @3); }
+| rhs "%expect-rr" INT
+    { grammar_current_rule_expect_rr ($3, @3); }
 ;
 
 named_ref.opt:
-  /* Nothing. */ { $$ = 0; }
-|
-  BRACKETED_ID   { $$ = named_ref_new($1, @1); }
+  %empty         { $$ = NULL; }
+| BRACKETED_ID   { $$ = named_ref_new ($1, @1); }
 ;
 
 
-/*----------------------------*
- | variable and content.opt.  |
- *---------------------------*/
+/*---------------------.
+| variable and value.  |
+`---------------------*/
 
-/* The STRING form of variable is deprecated and is not M4-friendly.
-   For example, M4 fails for `%define "[" "value"'.  */
 variable:
   ID
-| STRING { $$ = uniqstr_new ($1); }
 ;
 
 /* Some content or empty by default. */
-content.opt:
-  /* Nothing. */   { $$ = ""; }
-| ID { $$ = $1; }
-| STRING
-;
-
-
-/*-------------*
- | braceless.  |
- *-------------*/
-
-braceless:
-  "{...}"
+%code requires {
+  #include "muscle-tab.h"
+  typedef struct
+  {
+    char const *chars;
+    muscle_kind kind;
+  } value_type;
+};
+%type <value_type> value;
+%printer
+{
+  switch ($$.kind)
     {
-      code_props plain_code;
-      $1[strlen ($1) - 1] = '\n';
-      code_props_plain_init (&plain_code, $1+1, @1);
-      code_props_translate_code (&plain_code);
-      gram_scanner_last_string_free ();
-      $$ = plain_code.code;
+    case muscle_code:    fprintf (yyo,  "{%s}",  $$.chars); break;
+    case muscle_keyword: fprintf (yyo,   "%s",   $$.chars); break;
+    case muscle_string:  fprintf (yyo, "\"%s\"", $$.chars); break;
     }
+} <value_type>;
+
+value:
+  %empty  { $$.kind = muscle_keyword; $$.chars = ""; }
+| ID      { $$.kind = muscle_keyword; $$.chars = $1; }
+| STRING  { $$.kind = muscle_string;  $$.chars = $1; }
+| "{...}" { $$.kind = muscle_code;    $$.chars = strip_braces ($1); }
 ;
 
 
-/*---------------*
- | Identifiers.  |
- *---------------*/
+/*--------------.
+| Identifiers.  |
+`--------------*/
 
 /* Identifiers are returned as uniqstr values by the scanner.
    Depending on their use, we may need to make them genuine symbols.  */
@@ -641,6 +739,24 @@ id:
     { $$ = symbol_from_uniqstr ($1, @1); }
 | CHAR
     {
+      const char *var = "api.token.raw";
+      if (current_class == nterm_sym)
+        {
+          complain (&@1, complaint,
+                    _("character literals cannot be nonterminals"));
+          YYERROR;
+        }
+      if (muscle_percent_define_ifdef (var))
+        {
+          int indent = 0;
+          complain_indent (&@1, complaint, &indent,
+                           _("character literals cannot be used together"
+                             " with %s"), var);
+          indent += SUB_INDENT;
+          location loc = muscle_percent_define_get_loc (var);
+          complain_indent (&loc, complaint, &indent,
+                           _("definition of %s"), var);
+        }
       $$ = symbol_get (char_name ($1), @1);
       symbol_class_set ($$, token_sym, @1, false);
       symbol_user_token_number_set ($$, $1, @1);
@@ -666,21 +782,22 @@ string_as_id:
     }
 ;
 
+%type <symbol*> string_as_id.opt;
+string_as_id.opt:
+  %empty             { $$ = NULL; }
+| string_as_id
+;
+
 epilogue.opt:
-  /* Nothing.  */
+  %empty
 | "%%" EPILOGUE
     {
-      code_props plain_code;
-      code_props_plain_init (&plain_code, $2, @2);
-      code_props_translate_code (&plain_code);
-      gram_scanner_last_string_free ();
-      muscle_code_grow ("epilogue", plain_code.code, @2);
+      muscle_code_grow ("epilogue", translate_code ($2, @2, true), @2);
       code_scanner_last_string_free ();
     }
 ;
 
 %%
-
 
 /* Return the location of the left-hand side of a rule whose
    right-hand side is RHS[1] ... RHS[N].  Ignore empty nonterminals in
@@ -690,7 +807,6 @@ epilogue.opt:
 static YYLTYPE
 lloc_default (YYLTYPE const *rhs, int n)
 {
-  int i;
   YYLTYPE loc;
 
   /* SGI MIPSpro 7.4.1m miscompiles "loc.start = loc.end = rhs[n].end;".
@@ -701,54 +817,83 @@ lloc_default (YYLTYPE const *rhs, int n)
   /* Ignore empty nonterminals the start of the right-hand side.
      Do not bother to ignore them at the end of the right-hand side,
      since empty nonterminals have the same end as their predecessors.  */
-  for (i = 1; i <= n; i++)
+  for (int i = 1; i <= n; i++)
     if (! equal_boundaries (rhs[i].start, rhs[i].end))
       {
-	loc.start = rhs[i].start;
-	break;
+        loc.start = rhs[i].start;
+        break;
       }
 
   return loc;
 }
 
+static
+char *strip_braces (char *code)
+{
+  code[strlen (code) - 1] = 0;
+  return code + 1;
+}
 
-/* Add a lex-param or a parse-param (depending on TYPE) with
-   declaration DECL and location LOC.  */
+static
+char const *
+translate_code (char *code, location loc, bool plain)
+{
+  code_props plain_code;
+  if (plain)
+    code_props_plain_init (&plain_code, code, loc);
+  else
+    code_props_symbol_action_init (&plain_code, code, loc);
+  code_props_translate_code (&plain_code);
+  gram_scanner_last_string_free ();
+  return plain_code.code;
+}
+
+static
+char const *
+translate_code_braceless (char *code, location loc)
+{
+  return translate_code (strip_braces (code), loc, true);
+}
 
 static void
-add_param (char const *type, char *decl, location loc)
+add_param (param_type type, char *decl, location loc)
 {
-  static char const alphanum[26 + 26 + 1 + 10] =
+  static char const alphanum[26 + 26 + 1 + 10 + 1] =
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "_"
     "0123456789";
+
   char const *name_start = NULL;
-  char *p;
+  {
+    char *p;
+    /* Stop on last actual character.  */
+    for (p = decl; p[1]; p++)
+      if ((p == decl
+           || ! memchr (alphanum, p[-1], sizeof alphanum - 1))
+          && memchr (alphanum, p[0], sizeof alphanum - 10 - 1))
+        name_start = p;
 
-  /* Stop on last actual character.  */
-  for (p = decl; p[1]; p++)
-    if ((p == decl
-	 || ! memchr (alphanum, p[-1], sizeof alphanum))
-	&& memchr (alphanum, p[0], sizeof alphanum - 10))
-      name_start = p;
-
-  /* Strip the surrounding '{' and '}', and any blanks just inside
-     the braces.  */
-  --p;
-  while (c_isspace ((unsigned char) *p))
+    /* Strip the surrounding '{' and '}', and any blanks just inside
+       the braces.  */
     --p;
-  p[1] = '\0';
-  ++decl;
-  while (c_isspace ((unsigned char) *decl))
+    while (c_isspace ((unsigned char) *p))
+      --p;
+    p[1] = '\0';
     ++decl;
+    while (c_isspace ((unsigned char) *decl))
+      ++decl;
+  }
 
   if (! name_start)
-    complain_at (loc, _("missing identifier in parameter declaration"));
+    complain (&loc, complaint, _("missing identifier in parameter declaration"));
   else
     {
       char *name = xmemdup0 (name_start, strspn (name_start, alphanum));
-      muscle_pair_list_grow (type, decl, name);
+      if (type & param_lex)
+        muscle_pair_list_grow ("lex_param", decl, name);
+      if (type & param_parse)
+        muscle_pair_list_grow ("parse_param", decl, name);
       free (name);
     }
 
@@ -757,26 +902,181 @@ add_param (char const *type, char *decl, location loc)
 
 
 static void
-version_check (location const *loc, char const *version)
+handle_error_verbose (location const *loc, char const *directive)
 {
-  if (strverscmp (version, PACKAGE_VERSION) > 0)
+  bison_directive (loc, directive);
+  muscle_percent_define_insert (directive, *loc, muscle_keyword, "",
+                                MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE);
+}
+
+
+static void
+handle_file_prefix (location const *loc,
+                    location const *dir_loc,
+                    char const *directive, char const *value)
+{
+  bison_directive (loc, directive);
+  bool warned = false;
+
+  if (location_empty (spec_file_prefix_loc))
     {
-      complain_at (*loc, "require bison %s, but have %s",
-                   version, PACKAGE_VERSION);
+      spec_file_prefix_loc = *loc;
+      spec_file_prefix = value;
+    }
+  else
+    {
+      duplicate_directive (directive, spec_file_prefix_loc, *loc);
+      warned = true;
+    }
+
+  if (!warned
+      && STRNEQ (directive, "%file-prefix"))
+    deprecated_directive (dir_loc, directive, "%file-prefix");
+}
+
+
+static void
+handle_name_prefix (location const *loc,
+                    char const *directive, char const *value)
+{
+  bison_directive (loc, directive);
+
+  char buf1[1024];
+  size_t len1 = sizeof (buf1);
+  char *old = asnprintf (buf1, &len1, "%s\"%s\"", directive, value);
+  if (!old)
+    xalloc_die ();
+
+  if (location_empty (spec_name_prefix_loc))
+    {
+      spec_name_prefix = value;
+      spec_name_prefix_loc = *loc;
+
+      char buf2[1024];
+      size_t len2 = sizeof (buf2);
+      char *new = asnprintf (buf2, &len2, "%%define api.prefix {%s}", value);
+      if (!new)
+        xalloc_die ();
+      deprecated_directive (loc, old, new);
+      if (new != buf2)
+        free (new);
+    }
+  else
+    duplicate_directive (old, spec_file_prefix_loc, *loc);
+
+  if (old != buf1)
+    free (old);
+}
+
+
+static void
+handle_pure_parser (location const *loc, char const *directive)
+{
+  bison_directive (loc, directive);
+  deprecated_directive (loc, directive, "%define api.pure");
+  muscle_percent_define_insert ("api.pure", *loc, muscle_keyword, "",
+                                MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE);
+}
+
+
+/* Convert VERSION into an int (MAJOR * 100 + MINOR).  Return -1 on
+   errors.
+
+   Changes of behavior are only on minor version changes, so "3.0.5"
+   is the same as "3.0": 300. */
+static int
+str_to_version (char const *version)
+{
+  IGNORE_TYPE_LIMITS_BEGIN
+  int res = 0;
+  errno = 0;
+  char *cp = NULL;
+  long major = strtol (version, &cp, 10);
+  if (errno || cp == version || *cp != '.' || major < 0
+      || INT_MULTIPLY_WRAPV (major, 100, &res))
+    return -1;
+
+  ++cp;
+  char *cp1 = NULL;
+  long minor = strtol (cp, &cp1, 10);
+  if (errno || cp1 == cp || (*cp1 != '\0' && *cp1 != '.')
+      || ! (0 <= minor && minor < 100)
+      || INT_ADD_WRAPV (minor, res, &res))
+    return -1;
+
+  IGNORE_TYPE_LIMITS_END
+  return res;
+}
+
+
+static void
+handle_require (location const *loc, char const *version)
+{
+  required_version = str_to_version (version);
+  if (required_version == -1)
+    {
+      complain (loc, complaint, _("invalid version requirement: %s"),
+                version);
+      required_version = 0;
+      return;
+    }
+
+  /* Pretend to be at least 3.5, to check features published in that
+     version while developping it.  */
+  const char* api_version = "3.5";
+  const char* package_version =
+    0 < strverscmp (api_version, PACKAGE_VERSION)
+    ? api_version : PACKAGE_VERSION;
+  if (0 < strverscmp (version, package_version))
+    {
+      complain (loc, complaint, _("require bison %s, but have %s"),
+                version, package_version);
       exit (EX_MISMATCH);
     }
 }
 
 static void
-gram_error (location const *loc, char const *msg)
+handle_skeleton (location const *loc, char const *skel)
 {
-  complain_at (*loc, "%s", msg);
+  char const *skeleton_user = skel;
+  if (strchr (skeleton_user, '/'))
+    {
+      size_t dir_length = strlen (grammar_file);
+      while (dir_length && grammar_file[dir_length - 1] != '/')
+        --dir_length;
+      while (dir_length && grammar_file[dir_length - 1] == '/')
+        --dir_length;
+      char *skeleton_build =
+        xmalloc (dir_length + 1 + strlen (skeleton_user) + 1);
+      if (dir_length > 0)
+        {
+          memcpy (skeleton_build, grammar_file, dir_length);
+          skeleton_build[dir_length++] = '/';
+        }
+      strcpy (skeleton_build + dir_length, skeleton_user);
+      skeleton_user = uniqstr_new (skeleton_build);
+      free (skeleton_build);
+    }
+  skeleton_arg (skeleton_user, grammar_prio, *loc);
 }
 
-char const *
-token_name (int type)
+
+static void
+handle_yacc (location const *loc)
 {
-  return yytname[YYTRANSLATE (type)];
+  const char *directive = "%yacc";
+  bison_directive (loc, directive);
+  if (location_empty (yacc_loc))
+    yacc_loc = *loc;
+  else
+    duplicate_directive (directive, yacc_loc, *loc);
+}
+
+
+static void
+gram_error (location const *loc, char const *msg)
+{
+  complain (loc, complaint, "%s", msg);
 }
 
 static char const *
@@ -790,4 +1090,31 @@ char_name (char c)
       buf[0] = '\''; buf[1] = c; buf[2] = '\''; buf[3] = '\0';
       return quotearg_style (escape_quoting_style, buf);
     }
+}
+
+static
+void
+current_lhs (symbol *sym, location loc, named_ref *ref)
+{
+  current_lhs_symbol = sym;
+  current_lhs_loc = loc;
+  if (sym)
+    symbol_location_as_lhs_set (sym, loc);
+  /* In order to simplify memory management, named references for lhs
+     are always assigned by deep copy into the current symbol_list
+     node.  This is because a single named-ref in the grammar may
+     result in several uses when the user factors lhs between several
+     rules using "|".  Therefore free the parser's original copy.  */
+  free (current_lhs_named_ref);
+  current_lhs_named_ref = ref;
+}
+
+static void tron (FILE *yyo)
+{
+  begin_use_class ("value", yyo);
+}
+
+static void troff (FILE *yyo)
+{
+  end_use_class ("value", yyo);
 }

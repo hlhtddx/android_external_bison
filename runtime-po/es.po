@@ -1,85 +1,89 @@
-# Mensajes en español para GNU Bison.
+# Mensajes en espaÃ±ol para GNU Bison.
 # Copyright (C) 1998 Free Software Foundation, Inc.
-# Nicolás García-Pedrajas <ngarcia-pedrajas@acm.org>, 1998.
-#
+# This file is distributed under the same license as the bison package.
+# NicolÃ¡s GarcÃ­a-Pedrajas <ngarcia-pedrajas@acm.org>, 1998.
+# Santiago Vila Doncel <sanvila@unex.es>, 2013.
 # Corregido por:
-#
-# cll - Carlos Linares López        clinares@acm.org
-#                                   clinares@delicias.dia.fi.upm.es
-#
+# cll - Carlos Linares LÃ³pez        clinares@acm.org
+# clinares@delicias.dia.fi.upm.es
 # Notas:
-#
-# 1. Nicolás, en algunas ocasiones notarás que algunos `msgstr' no están
+# 1. NicolÃ¡s, en algunas ocasiones notarÃ¡s que algunos `msgstr' no estÃ¡n
 # indentados como los `msgid'. No te preocupes, eso es porque yo utilizo
-# el `po-mode' de Emacs, ... Él es el responsable de esas indentaciones
+# el `po-mode' de Emacs, ... Ã‰l es el responsable de esas indentaciones
 # del `msgstr' :)
-#
 # 2. Todos los comentarios que contengan "Duda:" debieran revisarse.
-#
 # --------------------------------------------------------------------
-# En mi opinión has hecho un excelente trabajo y te animo a que sigas
-# manteniendo esta traducción y a que lo intentes con otras.
-#
-# (¡te lo dice el tío que ha traducido el paquete más grande: 1406
+# En mi opiniÃ³n has hecho un excelente trabajo y te animo a que sigas
+# manteniendo esta traducciÃ³n y a que lo intentes con otras.
+# (Â¡te lo dice el tÃ­o que ha traducido el paquete mÃ¡s grande: 1406
 # mensajes en el clisp!)
-#
-# 						      Carlos Linares
+# Carlos Linares
 # --------------------------------------------------------------------
-#
+# Francisco Javier Serrador <fserrador@gmail.com>, 2018.
 msgid ""
 msgstr ""
-"Project-Id-Version: GNU bison 1.875\n"
+"Project-Id-Version: bison-runtime 3.0.2\n"
 "Report-Msgid-Bugs-To: bug-bison@gnu.org\n"
-"POT-Creation-Date: 2012-12-12 16:09+0100\n"
-"PO-Revision-Date: 2003-01-02 12:47+0100\n"
-"Last-Translator: Nicolás García-Pedrajas <ngarcia-pedrajas@acm.org>\n"
-"Language-Team: Spanish <es@li.org>\n"
+"POT-Creation-Date: 2019-12-11 07:43+0100\n"
+"PO-Revision-Date: 2018-03-29 11:39+0200\n"
+"Last-Translator: Francisco Javier Serrador <fserrador@gmail.com>\n"
+"Language-Team: Spanish <es@tp.org.es>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8-bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Virtaal 0.7.1\n"
+"X-Bugs: Report translation errors to the Language-Team address.\n"
 
-#: data/glr.c:855 data/yacc.c:776
+#: data/skeletons/glr.c:884 data/skeletons/yacc.c:669
 msgid "syntax error: cannot back up"
-msgstr ""
+msgstr "error sintÃ¡ctico: no puede respaldar"
 
-#: data/glr.c:1729
+#: data/skeletons/glr.c:1793
 msgid "syntax is ambiguous"
-msgstr ""
+msgstr "la sintaxis es ambigua"
 
-#: data/glr.c:2014 data/glr.c:2094 data/glr.c:2134 data/glr.c:2399
-#: data/lalr1.cc:947 data/lalr1.cc:967 data/yacc.c:1351 data/yacc.c:1856
-#: data/yacc.c:1862
+#: data/skeletons/glr.c:2079 data/skeletons/glr.c:2164
+#: data/skeletons/glr.c:2208 data/skeletons/glr.c:2446
+#: data/skeletons/lalr1.cc:1385 data/skeletons/lalr1.cc:1406
+#: data/skeletons/yacc.c:1250 data/skeletons/yacc.c:1762
+#: data/skeletons/yacc.c:1768
 msgid "syntax error"
-msgstr ""
+msgstr "error de sintaxis"
 
-#: data/glr.c:2095 data/lalr1.cc:948 data/yacc.c:1352
+#: data/skeletons/glr.c:2165 data/skeletons/lalr1.cc:1386
+#: data/skeletons/yacc.c:1251
 #, c-format
 msgid "syntax error, unexpected %s"
-msgstr ""
+msgstr "error de sintaxis, %s inesperado"
 
-#: data/glr.c:2096 data/lalr1.cc:949 data/yacc.c:1353
+#: data/skeletons/glr.c:2166 data/skeletons/lalr1.cc:1387
+#: data/skeletons/yacc.c:1252
 #, c-format
 msgid "syntax error, unexpected %s, expecting %s"
-msgstr ""
+msgstr "error de sintaxis, %s inesperado, se esperaba %s"
 
-#: data/glr.c:2097 data/lalr1.cc:950 data/yacc.c:1354
+#: data/skeletons/glr.c:2167 data/skeletons/lalr1.cc:1388
+#: data/skeletons/yacc.c:1253
 #, c-format
 msgid "syntax error, unexpected %s, expecting %s or %s"
-msgstr ""
+msgstr "error de sintaxis, %s inesperado, se esperaba %s o %s"
 
-#: data/glr.c:2098 data/lalr1.cc:951 data/yacc.c:1355
+#: data/skeletons/glr.c:2168 data/skeletons/lalr1.cc:1389
+#: data/skeletons/yacc.c:1254
 #, c-format
 msgid "syntax error, unexpected %s, expecting %s or %s or %s"
-msgstr ""
+msgstr "error de sintaxis, %s inesperado, se esperaba %s o %s o %s"
 
-#: data/glr.c:2099 data/lalr1.cc:952 data/yacc.c:1356
+#: data/skeletons/glr.c:2169 data/skeletons/lalr1.cc:1390
+#: data/skeletons/yacc.c:1255
 #, c-format
 msgid "syntax error, unexpected %s, expecting %s or %s or %s or %s"
-msgstr ""
+msgstr "error de sintaxis, %s inesperado, se esperaba %s o %s o %s o %s"
 
-#: data/glr.c:2459 data/yacc.c:1436 data/yacc.c:1438 data/yacc.c:1616
-#: data/yacc.c:2013
+#: data/skeletons/glr.c:2505 data/skeletons/yacc.c:1335
+#: data/skeletons/yacc.c:1337 data/skeletons/yacc.c:1526
+#: data/skeletons/yacc.c:1918
 msgid "memory exhausted"
 msgstr "memoria agotada"
