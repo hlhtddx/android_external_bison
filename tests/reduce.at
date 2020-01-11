@@ -1,6 +1,7 @@
 # Exercising Bison Grammar Reduction.                      -*- Autotest -*-
 
-# Copyright (C) 2001-2002, 2007-2012 Free Software Foundation, Inc.
+# Copyright (C) 2001-2002, 2007-2015, 2018-2019 Free Software
+# Foundation, Inc.
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,15 +48,15 @@ AT_BISON_CHECK([[input.y]])
 
 AT_CHECK([[sed -n '/^Grammar/q;/^$/!p' input.output]], 0,
 [[Terminals unused in grammar
-   useless1
-   useless2
-   useless3
-   useless4
-   useless5
-   useless6
-   useless7
-   useless8
-   useless9
+    useless1
+    useless2
+    useless3
+    useless4
+    useless5
+    useless6
+    useless7
+    useless8
+    useless9
 ]])
 
 AT_CLEANUP
@@ -67,52 +68,47 @@ AT_CLEANUP
 ## ---------------------- ##
 
 AT_SETUP([Useless Nonterminals])
+AT_BISON_OPTION_PUSHDEFS
 
 AT_DATA([[input.y]],
-[[%verbose
+[[%code {
+  ]AT_YYERROR_DECLARE_EXTERN[
+  ]AT_YYLEX_DECLARE_EXTERN[
+}
+%verbose
 %output "input.c"
-
-%nterm useless1
-%nterm useless2
-%nterm useless3
-%nterm useless4
-%nterm useless5
-%nterm useless6
-%nterm useless7
-%nterm useless8
-%nterm useless9
 
 %token useful
 %%
 exp: useful;
+useless1:
+useless2:
+useless3:
 ]])
 
 AT_BISON_CHECK([[input.y]], 0, [],
-[[input.y: warning: 9 nonterminals useless in grammar
-input.y:4.8-15: warning: nonterminal useless in grammar: useless1
-input.y:5.8-15: warning: nonterminal useless in grammar: useless2
-input.y:6.8-15: warning: nonterminal useless in grammar: useless3
-input.y:7.8-15: warning: nonterminal useless in grammar: useless4
-input.y:8.8-15: warning: nonterminal useless in grammar: useless5
-input.y:9.8-15: warning: nonterminal useless in grammar: useless6
-input.y:10.8-15: warning: nonterminal useless in grammar: useless7
-input.y:11.8-15: warning: nonterminal useless in grammar: useless8
-input.y:12.8-15: warning: nonterminal useless in grammar: useless9
+[[input.y: warning: 3 nonterminals useless in grammar [-Wother]
+input.y: warning: 3 rules useless in grammar [-Wother]
+input.y:11.1-8: warning: nonterminal useless in grammar: useless1 [-Wother]
+input.y:12.1-8: warning: nonterminal useless in grammar: useless2 [-Wother]
+input.y:13.1-8: warning: nonterminal useless in grammar: useless3 [-Wother]
 ]])
 
 AT_CHECK([[sed -n '/^Grammar/q;/^$/!p' input.output]], 0,
 [[Nonterminals useless in grammar
-   useless1
-   useless2
-   useless3
-   useless4
-   useless5
-   useless6
-   useless7
-   useless8
-   useless9
+    useless1
+    useless2
+    useless3
+Rules useless in grammar
+    2 useless1: %empty
+    3 useless2: %empty
+    4 useless3: %empty
 ]])
 
+# Make sure the generated parser is correct.
+AT_COMPILE([input.o])
+
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 
 
@@ -123,10 +119,15 @@ AT_CLEANUP
 
 AT_SETUP([Useless Rules])
 
+AT_BISON_OPTION_PUSHDEFS
 AT_KEYWORDS([report])
 
 AT_DATA([[input.y]],
-[[%verbose
+[[%code {
+  ]AT_YYERROR_DECLARE_EXTERN[
+  ]AT_YYLEX_DECLARE_EXTERN[
+}
+%verbose
 %output "input.c"
 %token useful
 %%
@@ -143,108 +144,59 @@ useless9: '9';
 ]])
 
 AT_BISON_CHECK([[-fcaret input.y]], 0, [],
-[[input.y: warning: 9 nonterminals useless in grammar
-input.y: warning: 9 rules useless in grammar
-input.y:6.1-8: warning: nonterminal useless in grammar: useless1
- useless1: '1';
- ^^^^^^^^
-input.y:7.1-8: warning: nonterminal useless in grammar: useless2
- useless2: '2';
- ^^^^^^^^
-input.y:8.1-8: warning: nonterminal useless in grammar: useless3
- useless3: '3';
- ^^^^^^^^
-input.y:9.1-8: warning: nonterminal useless in grammar: useless4
- useless4: '4';
- ^^^^^^^^
-input.y:10.1-8: warning: nonterminal useless in grammar: useless5
- useless5: '5';
- ^^^^^^^^
-input.y:11.1-8: warning: nonterminal useless in grammar: useless6
- useless6: '6';
- ^^^^^^^^
-input.y:12.1-8: warning: nonterminal useless in grammar: useless7
- useless7: '7';
- ^^^^^^^^
-input.y:13.1-8: warning: nonterminal useless in grammar: useless8
- useless8: '8';
- ^^^^^^^^
-input.y:14.1-8: warning: nonterminal useless in grammar: useless9
- useless9: '9';
- ^^^^^^^^
-input.y:6.11-13: warning: rule useless in grammar
- useless1: '1';
-           ^^^
-input.y:7.11-13: warning: rule useless in grammar
- useless2: '2';
-           ^^^
-input.y:8.11-13: warning: rule useless in grammar
- useless3: '3';
-           ^^^
-input.y:9.11-13: warning: rule useless in grammar
- useless4: '4';
-           ^^^
-input.y:10.11-13: warning: rule useless in grammar
- useless5: '5';
-           ^^^
-input.y:11.11-13: warning: rule useless in grammar
- useless6: '6';
-           ^^^
-input.y:12.11-13: warning: rule useless in grammar
- useless7: '7';
-           ^^^
-input.y:13.11-13: warning: rule useless in grammar
- useless8: '8';
-           ^^^
-input.y:14.11-13: warning: rule useless in grammar
- useless9: '9';
-           ^^^
+[[input.y: warning: 9 nonterminals useless in grammar [-Wother]
+input.y: warning: 9 rules useless in grammar [-Wother]
+input.y:10.1-8: warning: nonterminal useless in grammar: useless1 [-Wother]
+   10 | useless1: '1';
+      | ^~~~~~~~
+input.y:11.1-8: warning: nonterminal useless in grammar: useless2 [-Wother]
+   11 | useless2: '2';
+      | ^~~~~~~~
+input.y:12.1-8: warning: nonterminal useless in grammar: useless3 [-Wother]
+   12 | useless3: '3';
+      | ^~~~~~~~
+input.y:13.1-8: warning: nonterminal useless in grammar: useless4 [-Wother]
+   13 | useless4: '4';
+      | ^~~~~~~~
+input.y:14.1-8: warning: nonterminal useless in grammar: useless5 [-Wother]
+   14 | useless5: '5';
+      | ^~~~~~~~
+input.y:15.1-8: warning: nonterminal useless in grammar: useless6 [-Wother]
+   15 | useless6: '6';
+      | ^~~~~~~~
+input.y:16.1-8: warning: nonterminal useless in grammar: useless7 [-Wother]
+   16 | useless7: '7';
+      | ^~~~~~~~
+input.y:17.1-8: warning: nonterminal useless in grammar: useless8 [-Wother]
+   17 | useless8: '8';
+      | ^~~~~~~~
+input.y:18.1-8: warning: nonterminal useless in grammar: useless9 [-Wother]
+   18 | useless9: '9';
+      | ^~~~~~~~
 ]])
 
-AT_BISON_CHECK([[input.y]], 0, [],
-[[input.y: warning: 9 nonterminals useless in grammar
-input.y: warning: 9 rules useless in grammar
-input.y:6.1-8: warning: nonterminal useless in grammar: useless1
-input.y:7.1-8: warning: nonterminal useless in grammar: useless2
-input.y:8.1-8: warning: nonterminal useless in grammar: useless3
-input.y:9.1-8: warning: nonterminal useless in grammar: useless4
-input.y:10.1-8: warning: nonterminal useless in grammar: useless5
-input.y:11.1-8: warning: nonterminal useless in grammar: useless6
-input.y:12.1-8: warning: nonterminal useless in grammar: useless7
-input.y:13.1-8: warning: nonterminal useless in grammar: useless8
-input.y:14.1-8: warning: nonterminal useless in grammar: useless9
-input.y:6.11-13: warning: rule useless in grammar: useless1: '1'
-input.y:7.11-13: warning: rule useless in grammar: useless2: '2'
-input.y:8.11-13: warning: rule useless in grammar: useless3: '3'
-input.y:9.11-13: warning: rule useless in grammar: useless4: '4'
-input.y:10.11-13: warning: rule useless in grammar: useless5: '5'
-input.y:11.11-13: warning: rule useless in grammar: useless6: '6'
-input.y:12.11-13: warning: rule useless in grammar: useless7: '7'
-input.y:13.11-13: warning: rule useless in grammar: useless8: '8'
-input.y:14.11-13: warning: rule useless in grammar: useless9: '9'
-]])
 
 AT_CHECK([[sed -n '/^Grammar/q;/^$/!p' input.output]], 0,
 [[Nonterminals useless in grammar
-   useless1
-   useless2
-   useless3
-   useless4
-   useless5
-   useless6
-   useless7
-   useless8
-   useless9
+    useless1
+    useless2
+    useless3
+    useless4
+    useless5
+    useless6
+    useless7
+    useless8
+    useless9
 Terminals unused in grammar
-   '1'
-   '2'
-   '3'
-   '4'
-   '5'
-   '6'
-   '7'
-   '8'
-   '9'
+    '1'
+    '2'
+    '3'
+    '4'
+    '5'
+    '6'
+    '7'
+    '8'
+    '9'
 Rules useless in grammar
     2 useless1: '1'
     3 useless2: '2'
@@ -257,6 +209,95 @@ Rules useless in grammar
    10 useless9: '9'
 ]])
 
+# Make sure the generated parser is correct.
+AT_COMPILE([input.o])
+
+AT_BISON_OPTION_POPDEFS
+AT_CLEANUP
+
+
+
+## --------------- ##
+## Useless Parts.  ##
+## --------------- ##
+
+AT_SETUP([Useless Parts])
+
+# We used to emit code that used symbol numbers before the useless
+# symbol elimination, hence before the renumbering of the useful
+# symbols.  As a result, the evaluation of the skeleton failed because
+# it used non existing symbol numbers.  Which is the happy scenario:
+# we could use numbers of other existing symbols...
+# http://lists.gnu.org/archive/html/bug-bison/2019-01/msg00044.html
+
+AT_BISON_OPTION_PUSHDEFS
+AT_DATA([[input.y]],
+[[%code {
+  ]AT_YYERROR_DECLARE_EXTERN[
+  ]AT_YYLEX_DECLARE_EXTERN[
+}
+%union { void* ptr; }
+%type <ptr> used1
+%type <ptr> used2
+
+%%
+start
+ : used1
+ ;
+
+used1
+ : used2 { $$ = $1; }
+ ;
+
+unused
+ : used2
+ ;
+
+used2
+ : { $$ = YY_NULLPTR; }
+ ;
+]])
+
+AT_BISON_CHECK([[-fcaret -rall -o input.c input.y]], 0, [],
+[[input.y: warning: 1 nonterminal useless in grammar [-Wother]
+input.y: warning: 1 rule useless in grammar [-Wother]
+input.y:18.1-6: warning: nonterminal useless in grammar: unused [-Wother]
+   18 | unused
+      | ^~~~~~
+]])
+
+
+AT_CHECK([[sed -n '/^State 0/q;/^$/!p' input.output]], 0,
+[[Nonterminals useless in grammar
+    unused
+Rules useless in grammar
+    4 unused: used2
+Grammar
+    0 $accept: start $end
+    1 start: used1
+    2 used1: used2
+    3 used2: %empty
+Terminals, with rules where they appear
+    $end (0) 0
+    error (256)
+Nonterminals, with rules where they appear
+    $accept (3)
+        on left: 0
+    start (4)
+        on left: 1
+        on right: 0
+    used1 <ptr> (5)
+        on left: 2
+        on right: 1
+    used2 <ptr> (6)
+        on left: 3
+        on right: 2
+]])
+
+# Make sure the generated parser is correct.
+AT_COMPILE([input.o])
+
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 
 
@@ -298,41 +339,25 @@ non_productive: non_productive useless_token
 ]])
 
 AT_BISON_CHECK([[-fcaret not-reduced.y]], 0, [],
-[[not-reduced.y: warning: 2 nonterminals useless in grammar
-not-reduced.y: warning: 3 rules useless in grammar
-not-reduced.y:14.1-13: warning: nonterminal useless in grammar: not_reachable
- not_reachable: useful  { /* A not reachable action. */ }
- ^^^^^^^^^^^^^
-not-reduced.y:11.6-19: warning: nonterminal useless in grammar: non_productive
-    | non_productive    { /* A non productive action. */ }
-      ^^^^^^^^^^^^^^
-not-reduced.y:11.6-57: warning: rule useless in grammar
-    | non_productive    { /* A non productive action. */ }
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-not-reduced.y:14.16-56: warning: rule useless in grammar
- not_reachable: useful  { /* A not reachable action. */ }
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-not-reduced.y:17.17-18.63: warning: rule useless in grammar
- non_productive: non_productive useless_token
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-]])
-
-AT_BISON_CHECK([[not-reduced.y]], 0, [],
-[[not-reduced.y: warning: 2 nonterminals useless in grammar
-not-reduced.y: warning: 3 rules useless in grammar
-not-reduced.y:14.1-13: warning: nonterminal useless in grammar: not_reachable
-not-reduced.y:11.6-19: warning: nonterminal useless in grammar: non_productive
-not-reduced.y:11.6-57: warning: rule useless in grammar: exp: non_productive
-not-reduced.y:14.16-56: warning: rule useless in grammar: not_reachable: useful
-not-reduced.y:17.17-18.63: warning: rule useless in grammar: non_productive: non_productive useless_token
+[[not-reduced.y: warning: 2 nonterminals useless in grammar [-Wother]
+not-reduced.y: warning: 3 rules useless in grammar [-Wother]
+not-reduced.y:14.1-13: warning: nonterminal useless in grammar: not_reachable [-Wother]
+   14 | not_reachable: useful  { /* A not reachable action. */ }
+      | ^~~~~~~~~~~~~
+not-reduced.y:17.1-14: warning: nonterminal useless in grammar: non_productive [-Wother]
+   17 | non_productive: non_productive useless_token
+      | ^~~~~~~~~~~~~~
+not-reduced.y:11.6-57: warning: rule useless in grammar [-Wother]
+   11 |    | non_productive    { /* A non productive action. */ }
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ]])
 
 AT_CHECK([[sed -n '/^Grammar/q;/^$/!p' not-reduced.output]], 0,
 [[Nonterminals useless in grammar
-   not_reachable
-   non_productive
+    not_reachable
+    non_productive
 Terminals unused in grammar
-   useless_token
+    useless_token
 Rules useless in grammar
     2 exp: non_productive
     3 not_reachable: useful
@@ -392,20 +417,24 @@ underivable: indirection;
 indirection: underivable;
 ]])
 
-AT_BISON_CHECK([[input.y]], 0, [],
-[[input.y: warning: 2 nonterminals useless in grammar
-input.y: warning: 3 rules useless in grammar
-input.y:5.15-25: warning: nonterminal useless in grammar: underivable
-input.y:6.14-24: warning: nonterminal useless in grammar: indirection
-input.y:5.15-25: warning: rule useless in grammar: exp: underivable
-input.y:6.14-24: warning: rule useless in grammar: underivable: indirection
-input.y:7.14-24: warning: rule useless in grammar: indirection: underivable
+AT_BISON_CHECK([[-fcaret input.y]], 0, [],
+[[input.y: warning: 2 nonterminals useless in grammar [-Wother]
+input.y: warning: 3 rules useless in grammar [-Wother]
+input.y:6.1-11: warning: nonterminal useless in grammar: underivable [-Wother]
+    6 | underivable: indirection;
+      | ^~~~~~~~~~~
+input.y:7.1-11: warning: nonterminal useless in grammar: indirection [-Wother]
+    7 | indirection: underivable;
+      | ^~~~~~~~~~~
+input.y:5.15-25: warning: rule useless in grammar [-Wother]
+    5 | exp: useful | underivable;
+      |               ^~~~~~~~~~~
 ]])
 
 AT_CHECK([[sed -n '/^Grammar/q;/^$/!p' input.output]], 0,
 [[Nonterminals useless in grammar
-   underivable
-   indirection
+    underivable
+    indirection
 Rules useless in grammar
     2 exp: underivable
     3 underivable: indirection
@@ -429,8 +458,8 @@ exp: exp;
 ]])
 
 AT_BISON_CHECK([[input.y]], 1, [],
-[[input.y: warning: 2 nonterminals useless in grammar
-input.y: warning: 2 rules useless in grammar
+[[input.y: warning: 2 nonterminals useless in grammar [-Wother]
+input.y: warning: 2 rules useless in grammar [-Wother]
 input.y:3.1-3: fatal error: start symbol exp does not derive any sentence
 ]])
 
@@ -474,8 +503,8 @@ AT_TEST_TABLES_AND_PARSE([[%define lr.type canonical-lr: ]$1],
 AT_TEST_LR_TYPE([[Single State Split]],
 [[%left 'a'
 // Conflict resolution renders state 12 unreachable for canonical LR(1).  We
-// keep it so that the paser table diff is easier to code.
-%define lr.keep-unreachable-states]],
+// keep it so that the parser table diff is easier to code.
+%define lr.keep-unreachable-state]],
 [[
 S: 'a' A 'a' /* rule 1 */
  | 'b' A 'b' /* rule 2 */
@@ -707,8 +736,8 @@ dnl PARSER-EXIT-VALUE, PARSER-STDOUT, PARSER-STDERR
 AT_TEST_LR_TYPE([[Lane Split]],
 [[%left 'a'
 // Conflict resolution renders state 16 unreachable for canonical LR(1).  We
-// keep it so that the paser table diff is easier to code.
-%define lr.keep-unreachable-states]],
+// keep it so that the parser table diff is easier to code.
+%define lr.keep-unreachable-state]],
 [[
 /* Similar to the last test case set but two states must be split.  */
 S: 'a' A 'a' /* rule 1 */
@@ -951,8 +980,8 @@ dnl PARSER-EXIT-VALUE, PARSER-STDOUT, PARSER-STDERR
 AT_TEST_LR_TYPE([[Complex Lane Split]],
 [[%left 'a'
 // Conflict resolution renders state 16 unreachable for canonical LR(1).  We
-// keep it so that the paser table diff is easier to code.
-%define lr.keep-unreachable-states]],
+// keep it so that the parser table diff is easier to code.
+%define lr.keep-unreachable-state]],
 [[
 /* Similar to the last test case set but forseeing the S/R conflict from the
    first state that must be split is becoming difficult.  Imagine if B were
@@ -965,7 +994,7 @@ S: 'a' A 'a'
 A: 'a' 'a' B
  ;
 B: 'a'
- | %prec 'a'
+ | %empty %prec 'a'
  ;
 c: 'a' 'a' 'b'
  | A
@@ -1089,7 +1118,7 @@ State 12
 
     4 A: 'a' 'a' . B
     5 B: . 'a'
-    6  | .  ]AT_COND_CASE([[LALR]], [[['a', 'b']]], [[['a']]])[
+    6  | . %empty  ]AT_COND_CASE([[LALR]], [[['a', 'b']]], [[['a']]])[
 
     ]AT_COND_CASE([[canonical LR]], [['a']],
                   [[$default]])[  reduce using rule 6 (B)
@@ -1119,7 +1148,7 @@ State 15
 
     4 A: 'a' 'a' . B
     5 B: . 'a'
-    6  | .  [$end]
+    6  | . %empty  [$end]
     7 c: 'a' 'a' . 'b'
 
     'a'  shift, and go to state ]AT_COND_CASE([[canonical LR]], [[20]],
@@ -1182,7 +1211,7 @@ State 22]])[
 
     4 A: 'a' 'a' . B
     5 B: . 'a'
-    6  | .  ['b']
+    6  | . %empty  ['b']
 
     'a'  shift, and go to state ]AT_COND_CASE([[canonical LR]], [[23]],
                                               [[16]])[
@@ -1218,7 +1247,7 @@ dnl PARSER-EXIT-VALUE, PARSER-STDOUT, PARSER-STDERR
 ]])])
 
 AT_TEST_LR_TYPE([[Split During Added Lookahead Propagation]],
-[[%define lr.keep-unreachable-states]],
+[[%define lr.keep-unreachable-state]],
 [[
 /* The partial state chart diagram below is for LALR(1).  State 0 is the start
    state.  States are iterated for successor construction in numerical order.
@@ -1270,7 +1299,7 @@ dnl INPUT
 
 dnl BISON-STDERR
 [AT_COND_CASE([[LALR]],
-[[input.y: conflicts: 1 reduce/reduce
+[[input.y: warning: 1 reduce/reduce conflict [-Wconflicts-rr]
 ]], [])],
 
 dnl TABLES
@@ -1521,29 +1550,29 @@ dnl PARSER-EXIT-VALUE, PARSER-STDOUT, PARSER-STDERR
 
 
 
-## ------------------------------- ##
-## %define lr.default-reductions.  ##
-## ------------------------------- ##
+## ------------------------------ ##
+## %define lr.default-reduction.  ##
+## ------------------------------ ##
 
 # AT_TEST_LR_DEFAULT_REDUCTIONS(GRAMMAR, INPUT, TABLES)
 # -----------------------------------------------------
 m4_define([AT_TEST_LR_DEFAULT_REDUCTIONS],
 [
-AT_TEST_TABLES_AND_PARSE([[no %define lr.default-reductions]],
+AT_TEST_TABLES_AND_PARSE([[no %define lr.default-reduction]],
                          [[most]], [[]],
                          [[]],
                          [$1], [$2], [[]], [$3])
-AT_TEST_TABLES_AND_PARSE([[%define lr.default-reductions most]],
+AT_TEST_TABLES_AND_PARSE([[%define lr.default-reduction most]],
                          [[most]], [[]],
-                         [[%define lr.default-reductions most]],
+                         [[%define lr.default-reduction most]],
                          [$1], [$2], [[]], [$3])
-AT_TEST_TABLES_AND_PARSE([[%define lr.default-reductions consistent]],
+AT_TEST_TABLES_AND_PARSE([[%define lr.default-reduction consistent]],
                          [[consistent]], [[]],
-                         [[%define lr.default-reductions consistent]],
+                         [[%define lr.default-reduction consistent]],
                          [$1], [$2], [[]], [$3])
-AT_TEST_TABLES_AND_PARSE([[%define lr.default-reductions accepting]],
+AT_TEST_TABLES_AND_PARSE([[%define lr.default-reduction accepting]],
                          [[accepting]], [[]],
-                         [[%define lr.default-reductions accepting]],
+                         [[%define lr.default-reduction accepting]],
                          [$1], [$2], [[]], [$3])
 ])
 
@@ -1565,8 +1594,8 @@ a: 'a' ;
    and multiple reductions.  The first reduction has more lookaheads than the
    second, so the first should always be preferred as the default reduction if
    enabled.  The second reduction has one lookahead.  */
-b: ;
-c: ;
+b: %empty;
+c: %empty;
 ]],
 dnl Visit each state mentioned above.
 [['a', 'a']],
@@ -1607,8 +1636,8 @@ State 3
     1 start: a . b
     2      | a . b 'a'
     3      | a . c 'b'
-    5 b: .  [$end, 'a']
-    6 c: .  ['b']]AT_COND_CASE([[most]], [[
+    5 b: . %empty  [$end, 'a']
+    6 c: . %empty  ['b']]AT_COND_CASE([[most]], [[
 
     'b'       reduce using rule 6 (c)
     $default  reduce using rule 5 (b)]], [[

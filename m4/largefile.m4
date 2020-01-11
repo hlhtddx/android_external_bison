@@ -1,13 +1,14 @@
 # Enable large files on systems where this is not the default.
 
-# Copyright 1992-1996, 1998-2012 Free Software Foundation, Inc.
+# Copyright 1992-1996, 1998-2019 Free Software Foundation, Inc.
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# The following implementation works around a problem in autoconf <= 2.68;
-# AC_SYS_LARGEFILE does not configure for large inodes on Mac OS X 10.5.
-m4_version_prereq([2.69], [] ,[
+# The following implementation works around a problem in autoconf <= 2.69;
+# AC_SYS_LARGEFILE does not configure for large inodes on Mac OS X 10.5,
+# or configures them incorrectly in some cases.
+m4_version_prereq([2.70], [] ,[
 
 # _AC_SYS_LARGEFILE_TEST_INCLUDES
 # -------------------------------
@@ -25,9 +26,9 @@ m4_define([_AC_SYS_LARGEFILE_TEST_INCLUDES],
 
 
 # _AC_SYS_LARGEFILE_MACRO_VALUE(C-MACRO, VALUE,
-#				CACHE-VAR,
-#				DESCRIPTION,
-#				PROLOGUE, [FUNCTION-BODY])
+#                               CACHE-VAR,
+#                               DESCRIPTION,
+#                               PROLOGUE, [FUNCTION-BODY])
 # --------------------------------------------------------
 m4_define([_AC_SYS_LARGEFILE_MACRO_VALUE],
 [AC_CACHE_CHECK([for $1 value needed for large files], [$3],
@@ -55,7 +56,7 @@ rm -rf conftest*[]dnl
 # By default, many hosts won't let programs access large files;
 # one must use special compiler options to get large-file access to work.
 # For more details about this brain damage please see:
-# http://www.unix-systems.org/version2/whatsnew/lfs20mar.html
+# http://www.unix.org/version2/whatsnew/lfs20mar.html
 AC_DEFUN([AC_SYS_LARGEFILE],
 [AC_ARG_ENABLE(largefile,
                [  --disable-largefile     omit support for large files])
@@ -93,15 +94,11 @@ if test "$enable_largefile" != no; then
       [_AC_SYS_LARGEFILE_TEST_INCLUDES])
   fi
 
-  AH_VERBATIM([_DARWIN_USE_64_BIT_INODE],
-[/* Enable large inode numbers on Mac OS X.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
-#endif])
+  AC_DEFINE([_DARWIN_USE_64_BIT_INODE], [1],
+    [Enable large inode numbers on Mac OS X 10.5.])
 fi
 ])# AC_SYS_LARGEFILE
-
-])# m4_version_prereq 2.69
+])# m4_version_prereq 2.70
 
 # Enable large files on systems where this is implemented by Gnulib, not by the
 # system headers.
@@ -129,9 +126,24 @@ AC_DEFUN([gl_LARGEFILE],
       else
         WINDOWS_64_BIT_OFF_T=0
       fi
-      dnl But all native Windows platforms (including mingw64) have a 32-bit
-      dnl st_size member in 'struct stat'.
-      WINDOWS_64_BIT_ST_SIZE=1
+      dnl Some mingw versions define, if _FILE_OFFSET_BITS=64, 'struct stat'
+      dnl to 'struct _stat32i64' or 'struct _stat64' (depending on
+      dnl _USE_32BIT_TIME_T), which has a 32-bit st_size member.
+      AC_CACHE_CHECK([for 64-bit st_size], [gl_cv_member_st_size_64],
+        [AC_COMPILE_IFELSE(
+           [AC_LANG_PROGRAM(
+              [[#include <sys/types.h>
+                struct stat buf;
+                int verify_st_size_size[sizeof (buf.st_size) >= 8 ? 1 : -1];
+              ]],
+              [[]])],
+           [gl_cv_member_st_size_64=yes], [gl_cv_member_st_size_64=no])
+        ])
+      if test $gl_cv_member_st_size_64 = no; then
+        WINDOWS_64_BIT_ST_SIZE=1
+      else
+        WINDOWS_64_BIT_ST_SIZE=0
+      fi
       ;;
     *)
       dnl Nothing to do on gnulib's side.

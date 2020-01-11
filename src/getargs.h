@@ -1,7 +1,7 @@
 /* Parse command line arguments for bison.
 
-   Copyright (C) 1984, 1986, 1989, 1992, 2000-2012 Free Software
-   Foundation, Inc.
+   Copyright (C) 1984, 1986, 1989, 1992, 2000-2015, 2018-2019 Free
+   Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -21,7 +21,7 @@
 #ifndef GETARGS_H_
 # define GETARGS_H_
 
-#include "location.h"
+# include "location.h"
 
 enum { command_line_prio, grammar_prio, default_prio };
 
@@ -34,18 +34,14 @@ extern int skeleton_prio;
 /* for -I */
 extern char const *include;
 
-extern bool debug;			/* for -t */
-extern bool defines_flag;		/* for -d */
-extern bool graph_flag;			/* for -g */
-extern bool xml_flag;			/* for -x */
-extern bool locations_flag;
-extern bool no_lines_flag;		/* for -l */
-extern bool token_table_flag;		/* for -k */
-extern bool yacc_flag;			/* for -y */
-
-extern bool error_verbose;
-
-
+extern bool defines_flag;               /* for -d */
+extern bool graph_flag;                 /* for -g */
+extern bool xml_flag;                   /* for -x */
+extern bool no_lines_flag;              /* for -l */
+extern bool token_table_flag;           /* for -k */
+extern location yacc_loc;               /* for -y */
+extern bool update_flag;                /* for -u */
+extern bool color_debug;                /* --color=debug. */
 /* GLR_PARSER is true if the input file says to use the GLR
    (Generalized LR) parser, and to output some additional information
    used by the GLR algorithm.  */
@@ -107,28 +103,12 @@ enum trace
     trace_m4        = 1 << 10, /**< M4 traces. */
     trace_muscles   = 1 << 11, /**< M4 definitions of the muscles. */
     trace_ielr      = 1 << 12, /**< IELR conversion. */
+    trace_closure   = 1 << 13, /**< Input/output of closure(). */
+    trace_locations = 1 << 14, /**< Full display of locations. */
     trace_all       = ~0       /**< All of the above.  */
   };
 /** What debug items bison displays during its run.  */
 extern int trace_flag;
-
-/*-------------.
-| --warnings.  |
-`-------------*/
-
-enum warnings
-  {
-    warnings_none             = 0,      /**< Issue no warnings.  */
-    warnings_error            = 1 << 0, /**< Warnings are treated as errors.  */
-    warnings_midrule_values   = 1 << 1, /**< Unset or unused midrule values.  */
-    warnings_yacc             = 1 << 2, /**< POSIXME.  */
-    warnings_conflicts_sr     = 1 << 3, /**< S/R conflicts.  */
-    warnings_conflicts_rr     = 1 << 4, /**< R/R conflicts.  */
-    warnings_other            = 1 << 5, /**< All other warnings.  */
-    warnings_all              = ~warnings_error /**< All above warnings.  */
-  };
-/** What warnings are issued.  */
-extern int warnings_flag;
 
 /*-------------.
 | --features.  |
@@ -136,12 +116,15 @@ extern int warnings_flag;
 
 enum feature
   {
-    feature_none  = 0,         /**< No additional feature.  */
-    feature_caret = 1 << 0,    /**< Enhance the output of errors with carets.  */
-    feature_all   = ~0         /**< All above features.  */
+    feature_none             = 0,      /**< No additional feature.  */
+    feature_caret            = 1 << 0, /**< Output errors with carets.  */
+    feature_fixit            = 1 << 1, /**< Issue instructions to fix the sources.  */
+    feature_syntax_only      = 1 << 2, /**< Don't generate output.  */
+    feature_all              = ~0      /**< All above features.  */
   };
 /** What additional features to use.  */
 extern int feature_flag;
+
 
 /** Process the command line arguments.
  *

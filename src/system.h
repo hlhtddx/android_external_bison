@@ -1,6 +1,7 @@
 /* System-dependent definitions for Bison.
 
-   Copyright (C) 2000-2007, 2009-2012 Free Software Foundation, Inc.
+   Copyright (C) 2000-2007, 2009-2015, 2018-2019 Free Software
+   Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,7 +19,7 @@
 #ifndef BISON_SYSTEM_H
 # define BISON_SYSTEM_H
 
-/* flex 2.5.31 gratutiously defines macros like INT8_MIN.  But this
+/* flex 2.5.31 gratuitously defines macros like INT8_MIN.  But this
    runs afoul of pre-C99 compilers that have <inttypes.h> or
    <stdint.h>, which are included below if available.  It also runs
    afoul of pre-C99 compilers that define these macros in <limits.h>.  */
@@ -38,12 +39,22 @@
 # include <stddef.h>
 # include <stdlib.h>
 # include <string.h>
+
+# define ARRAY_CARDINALITY(Array) (sizeof (Array) / sizeof *(Array))
+# define STREQ(L, R)  (strcmp(L, R) == 0)
+# define STRNEQ(L, R) (!STREQ(L, R))
+
+/* Just like strncmp, but the second argument must be a literal string
+   and you don't specify the length.  */
+# define STRNCMP_LIT(S, Literal)                        \
+  strncmp (S, "" Literal "", sizeof (Literal) - 1)
+
+/* Whether Literal is a prefix of S.  */
+# define STRPREFIX_LIT(Literal, S)              \
+  (STRNCMP_LIT (S, Literal) == 0)
+
 # include <unistd.h>
 # include <inttypes.h>
-
-#define ARRAY_CARDINALITY(Array) (sizeof (Array) / sizeof *(Array))
-#define STREQ(L, R)  (strcmp(L, R) == 0)
-#define STRNEQ(L, R) (!STREQ(L, R))
 
 # ifndef UINTPTR_MAX
 /* This isn't perfect, but it's good enough for Bison, which needs
@@ -61,6 +72,19 @@ typedef size_t uintptr_t;
 # include <unlocked-io.h>
 # include <verify.h>
 # include <xalloc.h>
+
+
+/* See https://lists.gnu.org/archive/html/bug-bison/2019-10/msg00061.html. */
+# if defined __GNUC__ && ! defined __clang__ && ! defined __ICC && __GNUC__ < 5
+#  define IGNORE_TYPE_LIMITS_BEGIN \
+     _Pragma ("GCC diagnostic push") \
+     _Pragma ("GCC diagnostic ignored \"-Wtype-limits\"")
+#  define IGNORE_TYPE_LIMITS_END \
+     _Pragma ("GCC diagnostic pop")
+# else
+#  define IGNORE_TYPE_LIMITS_BEGIN
+#  define IGNORE_TYPE_LIMITS_END
+# endif
 
 
 /*-----------------.
@@ -89,7 +113,7 @@ typedef size_t uintptr_t;
 #  endif
 # endif
 
-/* The __-protected variants of `format' and `printf' attributes
+/* The __-protected variants of 'format' and 'printf' attributes
    are accepted by gcc versions 2.6.4 (effectively 2.7) and later.  */
 # if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 7)
 #  define __format__ format
@@ -158,7 +182,9 @@ typedef size_t uintptr_t;
 # define obstack_chunk_free  free
 # include <obstack.h>
 
-# define obstack_sgrow(Obs, Str)                \
+/* String-grow: append Str to Obs.  */
+
+# define obstack_sgrow(Obs, Str) \
   obstack_grow (Obs, Str, strlen (Str))
 
 /* Output Str escaped for our postprocessing (i.e., escape M4 special
@@ -168,15 +194,15 @@ typedef size_t uintptr_t;
 
 # define obstack_escape(Obs, Str)                       \
   do {                                                  \
-    char const *p;                                      \
-    for (p = Str; *p; p++)                              \
-      switch (*p)                                       \
+    char const *p__;                                    \
+    for (p__ = Str; *p__; p__++)                        \
+      switch (*p__)                                     \
         {                                               \
         case '$': obstack_sgrow (Obs, "$]["); break;    \
         case '@': obstack_sgrow (Obs, "@@" ); break;    \
         case '[': obstack_sgrow (Obs, "@{" ); break;    \
         case ']': obstack_sgrow (Obs, "@}" ); break;    \
-        default:  obstack_1grow (Obs, *p   ); break;    \
+        default:  obstack_1grow (Obs, *p__ ); break;    \
         }                                               \
   } while (0)
 
@@ -204,7 +230,7 @@ typedef size_t uintptr_t;
 
 /* Append the ending 0, finish Obs, and return the string.  */
 
-# define obstack_finish0(Obs)                           \
+# define obstack_finish0(Obs)                                   \
   (obstack_1grow (Obs, '\0'), (char *) obstack_finish (Obs))
 
 
@@ -235,15 +261,5 @@ typedef size_t uintptr_t;
         free (_node);                           \
       }                                         \
   } while (0)
-
-
-/*---------------------------------------------.
-| Debugging memory allocation (must be last).  |
-`---------------------------------------------*/
-
-# if WITH_DMALLOC
-#  define DMALLOC_FUNC_CHECK
-#  include <dmalloc.h>
-# endif /* WITH_DMALLOC */
 
 #endif  /* ! BISON_SYSTEM_H */

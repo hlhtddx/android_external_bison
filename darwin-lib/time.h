@@ -1,7 +1,7 @@
 /* DO NOT EDIT! GENERATED AUTOMATICALLY! */
 /* A more-standard <time.h>.
 
-   Copyright (C) 2007-2012 Free Software Foundation, Inc.
+   Copyright (C) 2007-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, see <http://www.gnu.org/licenses/>.  */
+   along with this program; if not, see <https://www.gnu.org/licenses/>.  */
 
 #if __GNUC__ >= 3
 #pragma GCC system_header
@@ -23,11 +23,13 @@
 
 /* Don't get in the way of glibc when it includes time.h merely to
    declare a few standard symbols, rather than to declare all the
-   symbols.  Also, Solaris 8 <time.h> eventually includes itself
+   symbols.  (However, skip this for MinGW as it treats __need_time_t
+   incompatibly.)  Also, Solaris 8 <time.h> eventually includes itself
    recursively; if that is happening, just include the system <time.h>
    without adding our own declarations.  */
-#if (defined __need_time_t || defined __need_clock_t \
-     || defined __need_timespec \
+#if (((defined __need_time_t || defined __need_clock_t \
+       || defined __need_timespec)                     \
+      && !defined __MINGW32__)                         \
      || defined _GL_TIME_H)
 
 # include_next <time.h>
@@ -36,14 +38,45 @@
 
 # define _GL_TIME_H
 
+/* mingw's <time.h> provides the functions asctime_r, ctime_r, gmtime_r,
+   localtime_r only if <unistd.h> or <pthread.h> has been included before.  */
+# if defined __MINGW32__
+#  include <unistd.h>
+# endif
+
 # include_next <time.h>
 
 /* NetBSD 5.0 mis-defines NULL.  */
 # include <stddef.h>
 
 /* The definitions of _GL_FUNCDECL_RPL etc. are copied here.  */
+/* C++ compatible function declaration macros.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
 #ifndef _GL_CXXDEFS_H
 #define _GL_CXXDEFS_H
+
+/* Begin/end the GNULIB_NAMESPACE namespace.  */
+#if defined __cplusplus && defined GNULIB_NAMESPACE
+# define _GL_BEGIN_NAMESPACE namespace GNULIB_NAMESPACE {
+# define _GL_END_NAMESPACE }
+#else
+# define _GL_BEGIN_NAMESPACE
+# define _GL_END_NAMESPACE
+#endif
 
 /* The three most frequent use cases of these macros are:
 
@@ -139,14 +172,25 @@
    that redirects to rpl_func, if GNULIB_NAMESPACE is defined.
    Example:
      _GL_CXXALIAS_RPL (open, int, (const char *filename, int flags, ...));
- */
+
+   Wrapping rpl_func in an object with an inline conversion operator
+   avoids a reference to rpl_func unless GNULIB_NAMESPACE::func is
+   actually used in the program.  */
 #define _GL_CXXALIAS_RPL(func,rettype,parameters) \
   _GL_CXXALIAS_RPL_1 (func, rpl_##func, rettype, parameters)
 #if defined __cplusplus && defined GNULIB_NAMESPACE
 # define _GL_CXXALIAS_RPL_1(func,rpl_func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                                \
     {                                                         \
-      rettype (*const func) parameters = ::rpl_func;          \
+      static const struct _gl_ ## func ## _wrapper            \
+      {                                                       \
+        typedef rettype (*type) parameters;                   \
+                                                              \
+        inline operator type () const                         \
+        {                                                     \
+          return ::rpl_func;                                  \
+        }                                                     \
+      } func = {};                                            \
     }                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -163,8 +207,15 @@
 # define _GL_CXXALIAS_RPL_CAST_1(func,rpl_func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                                     \
     {                                                              \
-      rettype (*const func) parameters =                           \
-        reinterpret_cast<rettype(*)parameters>(::rpl_func);        \
+      static const struct _gl_ ## func ## _wrapper                 \
+      {                                                            \
+        typedef rettype (*type) parameters;                        \
+                                                                   \
+        inline operator type () const                              \
+        {                                                          \
+          return reinterpret_cast<type>(::rpl_func);               \
+        }                                                          \
+      } func = {};                                                 \
     }                                                              \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -178,19 +229,24 @@
    is defined.
    Example:
      _GL_CXXALIAS_SYS (open, int, (const char *filename, int flags, ...));
- */
+
+   Wrapping func in an object with an inline conversion operator
+   avoids a reference to func unless GNULIB_NAMESPACE::func is
+   actually used in the program.  */
 #if defined __cplusplus && defined GNULIB_NAMESPACE
-  /* If we were to write
-       rettype (*const func) parameters = ::func;
-     like above in _GL_CXXALIAS_RPL_1, the compiler could optimize calls
-     better (remove an indirection through a 'static' pointer variable),
-     but then the _GL_CXXALIASWARN macro below would cause a warning not only
-     for uses of ::func but also for uses of GNULIB_NAMESPACE::func.  */
-# define _GL_CXXALIAS_SYS(func,rettype,parameters) \
-    namespace GNULIB_NAMESPACE                     \
-    {                                              \
-      static rettype (*func) parameters = ::func;  \
-    }                                              \
+# define _GL_CXXALIAS_SYS(func,rettype,parameters)            \
+    namespace GNULIB_NAMESPACE                                \
+    {                                                         \
+      static const struct _gl_ ## func ## _wrapper            \
+      {                                                       \
+        typedef rettype (*type) parameters;                   \
+                                                              \
+        inline operator type () const                         \
+        {                                                     \
+          return ::func;                                      \
+        }                                                     \
+      } func = {};                                            \
+    }                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
 # define _GL_CXXALIAS_SYS(func,rettype,parameters) \
@@ -206,8 +262,15 @@
 # define _GL_CXXALIAS_SYS_CAST(func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                          \
     {                                                   \
-      static rettype (*func) parameters =               \
-        reinterpret_cast<rettype(*)parameters>(::func); \
+      static const struct _gl_ ## func ## _wrapper      \
+      {                                                 \
+        typedef rettype (*type) parameters;             \
+                                                        \
+        inline operator type () const                   \
+        {                                               \
+          return reinterpret_cast<type>(::func);        \
+        }                                               \
+      } func = {};                                      \
     }                                                   \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -230,9 +293,15 @@
 # define _GL_CXXALIAS_SYS_CAST2(func,rettype,parameters,rettype2,parameters2) \
     namespace GNULIB_NAMESPACE                                                \
     {                                                                         \
-      static rettype (*func) parameters =                                     \
-        reinterpret_cast<rettype(*)parameters>(                               \
-          (rettype2(*)parameters2)(::func));                                  \
+      static const struct _gl_ ## func ## _wrapper                            \
+      {                                                                       \
+        typedef rettype (*type) parameters;                                   \
+                                                                              \
+        inline operator type () const                                         \
+        {                                                                     \
+          return reinterpret_cast<type>((rettype2 (*) parameters2)(::func));  \
+        }                                                                     \
+      } func = {};                                                            \
     }                                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -249,7 +318,7 @@
    _GL_CXXALIASWARN_1 (func, GNULIB_NAMESPACE)
 # define _GL_CXXALIASWARN_1(func,namespace) \
    _GL_CXXALIASWARN_2 (func, namespace)
-/* To work around GCC bug <http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
+/* To work around GCC bug <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
    we enable the warning only when not optimizing.  */
 # if !__OPTIMIZE__
 #  define _GL_CXXALIASWARN_2(func,namespace) \
@@ -277,7 +346,7 @@
                         GNULIB_NAMESPACE)
 # define _GL_CXXALIASWARN1_1(func,rettype,parameters_and_attributes,namespace) \
    _GL_CXXALIASWARN1_2 (func, rettype, parameters_and_attributes, namespace)
-/* To work around GCC bug <http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
+/* To work around GCC bug <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
    we enable the warning only when not optimizing.  */
 # if !__OPTIMIZE__
 #  define _GL_CXXALIASWARN1_2(func,rettype,parameters_and_attributes,namespace) \
@@ -299,6 +368,22 @@
 #endif /* _GL_CXXDEFS_H */
 
 /* The definition of _GL_ARG_NONNULL is copied here.  */
+/* A C macro for declaring that specific arguments must not be NULL.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
 /* _GL_ARG_NONNULL((n,...,m)) tells the compiler and static analyzer tools
    that the values passed as arguments n, ..., m must be non-NULL pointers.
    n = 1 stands for the first argument, n = 2 for the second argument etc.  */
@@ -311,19 +396,104 @@
 #endif
 
 /* The definition of _GL_WARN_ON_USE is copied here.  */
+/* A C macro for emitting warnings if a function is used.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
+/* _GL_WARN_ON_USE (function, "literal string") issues a declaration
+   for FUNCTION which will then trigger a compiler warning containing
+   the text of "literal string" anywhere that function is called, if
+   supported by the compiler.  If the compiler does not support this
+   feature, the macro expands to an unused extern declaration.
+
+   _GL_WARN_ON_USE_ATTRIBUTE ("literal string") expands to the
+   attribute used in _GL_WARN_ON_USE.  If the compiler does not support
+   this feature, it expands to empty.
+
+   These macros are useful for marking a function as a potential
+   portability trap, with the intent that "literal string" include
+   instructions on the replacement function that should be used
+   instead.
+   _GL_WARN_ON_USE is for functions with 'extern' linkage.
+   _GL_WARN_ON_USE_ATTRIBUTE is for functions with 'static' or 'inline'
+   linkage.
+
+   However, one of the reasons that a function is a portability trap is
+   if it has the wrong signature.  Declaring FUNCTION with a different
+   signature in C is a compilation error, so this macro must use the
+   same type as any existing declaration so that programs that avoid
+   the problematic FUNCTION do not fail to compile merely because they
+   included a header that poisoned the function.  But this implies that
+   _GL_WARN_ON_USE is only safe to use if FUNCTION is known to already
+   have a declaration.  Use of this macro implies that there must not
+   be any other macro hiding the declaration of FUNCTION; but
+   undefining FUNCTION first is part of the poisoning process anyway
+   (although for symbols that are provided only via a macro, the result
+   is a compilation error rather than a warning containing
+   "literal string").  Also note that in C++, it is only safe to use if
+   FUNCTION has no overloads.
+
+   For an example, it is possible to poison 'getline' by:
+   - adding a call to gl_WARN_ON_USE_PREPARE([[#include <stdio.h>]],
+     [getline]) in configure.ac, which potentially defines
+     HAVE_RAW_DECL_GETLINE
+   - adding this code to a header that wraps the system <stdio.h>:
+     #undef getline
+     #if HAVE_RAW_DECL_GETLINE
+     _GL_WARN_ON_USE (getline, "getline is required by POSIX 2008, but"
+       "not universally present; use the gnulib module getline");
+     #endif
+
+   It is not possible to directly poison global variables.  But it is
+   possible to write a wrapper accessor function, and poison that
+   (less common usage, like &environ, will cause a compilation error
+   rather than issue the nice warning, but the end result of informing
+   the developer about their portability problem is still achieved):
+     #if HAVE_RAW_DECL_ENVIRON
+     static char ***
+     rpl_environ (void) { return &environ; }
+     _GL_WARN_ON_USE (rpl_environ, "environ is not always properly declared");
+     # undef environ
+     # define environ (*rpl_environ ())
+     #endif
+   or better (avoiding contradictory use of 'static' and 'extern'):
+     #if HAVE_RAW_DECL_ENVIRON
+     static char ***
+     _GL_WARN_ON_USE_ATTRIBUTE ("environ is not always properly declared")
+     rpl_environ (void) { return &environ; }
+     # undef environ
+     # define environ (*rpl_environ ())
+     #endif
+   */
 #ifndef _GL_WARN_ON_USE
 
 # if 4 < __GNUC__ || (__GNUC__ == 4 && 3 <= __GNUC_MINOR__)
 /* A compiler attribute is available in gcc versions 4.3.0 and later.  */
 #  define _GL_WARN_ON_USE(function, message) \
 extern __typeof__ (function) function __attribute__ ((__warning__ (message)))
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message) \
+  __attribute__ ((__warning__ (message)))
 # elif __GNUC__ >= 3 && GNULIB_STRICT_CHECKING
 /* Verify the existence of the function.  */
 #  define _GL_WARN_ON_USE(function, message) \
 extern __typeof__ (function) function
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message)
 # else /* Unsupported.  */
 #  define _GL_WARN_ON_USE(function, message) \
 _GL_WARN_EXTERN_C int _gl_warn_on_use
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message)
 # endif
 #endif
 
@@ -358,22 +528,17 @@ _GL_WARN_EXTERN_C int _gl_warn_on_use
 # endif
 #endif
 
-/* Some systems don't define struct timespec (e.g., AIX 4.1, Ultrix 4.3).
+/* Some systems don't define struct timespec (e.g., AIX 4.1).
    Or they define it with the wrong member names or define it in <sys/time.h>
-   (e.g., FreeBSD circa 1997).  Stock Mingw does not define it, but the
-   pthreads-win32 library defines it in <pthread.h>.  */
+   (e.g., FreeBSD circa 1997).  Stock Mingw prior to 3.0 does not define it,
+   but the pthreads-win32 library defines it in <pthread.h>.  */
 # if ! 1
 #  if 0
 #   include <sys/time.h>
 #  elif 0
 #   include <pthread.h>
-/* The pthreads-win32 <pthread.h> also defines a couple of broken macros.  */
-#   undef asctime_r
-#   undef ctime_r
-#   undef gmtime_r
-#   undef localtime_r
-#   undef rand_r
-#   undef strtok_r
+#  elif 0
+#   include <unistd.h>
 #  else
 
 #   ifdef __cplusplus
@@ -399,8 +564,8 @@ struct timespec
 # endif
 
 # if !GNULIB_defined_struct_time_t_must_be_integral
-/* Per http://austingroupbugs.net/view.php?id=327, POSIX requires
-   time_t to be an integer type, even though C99 permits floating
+/* https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/sys_types.h.html
+   requires time_t to be an integer type, even though C99 permits floating
    point.  We don't know of any implementation that uses floating
    point, and it is much easier to write code that doesn't have to
    worry about that corner case, so we force the issue.  */
@@ -412,7 +577,7 @@ struct __time_t_must_be_integral {
 
 /* Sleep for at least RQTP seconds unless interrupted,  If interrupted,
    return -1 and store the remaining time into RMTP.  See
-   <http://www.opengroup.org/susv3xsh/nanosleep.html>.  */
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/nanosleep.html>.  */
 # if 0
 #  if GNULIB_PORTCHECK
 #   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
@@ -435,6 +600,24 @@ _GL_CXXALIAS_SYS (nanosleep, int,
 _GL_CXXALIASWARN (nanosleep);
 # endif
 
+/* Initialize time conversion information.  */
+# if 0
+#  if GNULIB_PORTCHECK
+#   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#    undef tzset
+#    define tzset rpl_tzset
+#   endif
+_GL_FUNCDECL_RPL (tzset, void, (void));
+_GL_CXXALIAS_RPL (tzset, void, (void));
+#  else
+#   if ! 1
+_GL_FUNCDECL_SYS (tzset, void, (void));
+#   endif
+_GL_CXXALIAS_SYS (tzset, void, (void));
+#  endif
+_GL_CXXALIASWARN (tzset);
+# endif
+
 /* Return the 'time_t' representation of TP and normalize TP.  */
 # if 0
 #  if GNULIB_PORTCHECK
@@ -446,12 +629,14 @@ _GL_CXXALIAS_RPL (mktime, time_t, (struct tm *__tp));
 #  else
 _GL_CXXALIAS_SYS (mktime, time_t, (struct tm *__tp));
 #  endif
+#  if __GLIBC__ >= 2
 _GL_CXXALIASWARN (mktime);
+#  endif
 # endif
 
 /* Convert TIMER to RESULT, assuming local time and UTC respectively.  See
-   <http://www.opengroup.org/susv3xsh/localtime_r.html> and
-   <http://www.opengroup.org/susv3xsh/gmtime_r.html>.  */
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/localtime_r.html> and
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/gmtime_r.html>.  */
 # if 0
 #  if GNULIB_PORTCHECK
 #   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
@@ -499,9 +684,44 @@ _GL_CXXALIASWARN (gmtime_r);
 #  endif
 # endif
 
-/* Parse BUF as a time stamp, assuming FORMAT specifies its layout, and store
+/* Convert TIMER to RESULT, assuming local time and UTC respectively.  See
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/localtime.html> and
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/gmtime.html>.  */
+# if 0 || 0
+#  if 0
+#   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#    undef localtime
+#    define localtime rpl_localtime
+#   endif
+_GL_FUNCDECL_RPL (localtime, struct tm *, (time_t const *__timer)
+                                          _GL_ARG_NONNULL ((1)));
+_GL_CXXALIAS_RPL (localtime, struct tm *, (time_t const *__timer));
+#  else
+_GL_CXXALIAS_SYS (localtime, struct tm *, (time_t const *__timer));
+#  endif
+#  if __GLIBC__ >= 2
+_GL_CXXALIASWARN (localtime);
+#  endif
+# endif
+
+# if 0 || 0
+#  if 0
+#   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#    undef gmtime
+#    define gmtime rpl_gmtime
+#   endif
+_GL_FUNCDECL_RPL (gmtime, struct tm *, (time_t const *__timer)
+                                       _GL_ARG_NONNULL ((1)));
+_GL_CXXALIAS_RPL (gmtime, struct tm *, (time_t const *__timer));
+#  else
+_GL_CXXALIAS_SYS (gmtime, struct tm *, (time_t const *__timer));
+#  endif
+_GL_CXXALIASWARN (gmtime);
+# endif
+
+/* Parse BUF as a timestamp, assuming FORMAT specifies its layout, and store
    the resulting broken-down time into TM.  See
-   <http://www.opengroup.org/susv3xsh/strptime.html>.  */
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/strptime.html>.  */
 # if 0
 #  if ! 1
 _GL_FUNCDECL_SYS (strptime, char *, (char const *restrict __buf,
@@ -513,6 +733,64 @@ _GL_CXXALIAS_SYS (strptime, char *, (char const *restrict __buf,
                                      char const *restrict __format,
                                      struct tm *restrict __tm));
 _GL_CXXALIASWARN (strptime);
+# endif
+
+/* Convert *TP to a date and time string.  See
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/ctime.html>.  */
+# if 0
+#  if GNULIB_PORTCHECK
+#   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#    define ctime rpl_ctime
+#   endif
+_GL_FUNCDECL_RPL (ctime, char *, (time_t const *__tp)
+                                 _GL_ARG_NONNULL ((1)));
+_GL_CXXALIAS_RPL (ctime, char *, (time_t const *__tp));
+#  else
+_GL_CXXALIAS_SYS (ctime, char *, (time_t const *__tp));
+#  endif
+#  if __GLIBC__ >= 2
+_GL_CXXALIASWARN (ctime);
+#  endif
+# endif
+
+/* Convert *TP to a date and time string.  See
+   <https://pubs.opengroup.org/onlinepubs/9699919799/functions/strftime.html>.  */
+# if 0
+#  if GNULIB_PORTCHECK
+#   if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#    define strftime rpl_strftime
+#   endif
+_GL_FUNCDECL_RPL (strftime, size_t, (char *__buf, size_t __bufsize,
+                                     const char *__fmt, const struct tm *__tp)
+                                    _GL_ARG_NONNULL ((1, 3, 4)));
+_GL_CXXALIAS_RPL (strftime, size_t, (char *__buf, size_t __bufsize,
+                                     const char *__fmt, const struct tm *__tp));
+#  else
+_GL_CXXALIAS_SYS (strftime, size_t, (char *__buf, size_t __bufsize,
+                                     const char *__fmt, const struct tm *__tp));
+#  endif
+#  if __GLIBC__ >= 2
+_GL_CXXALIASWARN (strftime);
+#  endif
+# endif
+
+# if defined _GNU_SOURCE && 0 && ! 0
+typedef struct tm_zone *timezone_t;
+_GL_FUNCDECL_SYS (tzalloc, timezone_t, (char const *__name));
+_GL_CXXALIAS_SYS (tzalloc, timezone_t, (char const *__name));
+_GL_FUNCDECL_SYS (tzfree, void, (timezone_t __tz));
+_GL_CXXALIAS_SYS (tzfree, void, (timezone_t __tz));
+_GL_FUNCDECL_SYS (localtime_rz, struct tm *,
+                  (timezone_t __tz, time_t const *restrict __timer,
+                   struct tm *restrict __result) _GL_ARG_NONNULL ((2, 3)));
+_GL_CXXALIAS_SYS (localtime_rz, struct tm *,
+                  (timezone_t __tz, time_t const *restrict __timer,
+                   struct tm *restrict __result));
+_GL_FUNCDECL_SYS (mktime_z, time_t,
+                  (timezone_t __tz, struct tm *restrict __result)
+                  _GL_ARG_NONNULL ((2)));
+_GL_CXXALIAS_SYS (mktime_z, time_t,
+                  (timezone_t __tz, struct tm *restrict __result));
 # endif
 
 /* Convert TM to a time_t value, assuming UTC.  */

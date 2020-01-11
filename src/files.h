@@ -1,7 +1,7 @@
 /* File names and variables for bison,
 
-   Copyright (C) 1984, 1989, 2000-2002, 2006-2007, 2009-2012 Free
-   Software Foundation, Inc.
+   Copyright (C) 1984, 1989, 2000-2002, 2006-2007, 2009-2015, 2018-2019
+   Free Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -21,6 +21,7 @@
 #ifndef FILES_H_
 # define FILES_H_
 
+# include "location.h"
 # include "uniqstr.h"
 
 /* File name specified with -o for the output file, or 0 if no -o.  */
@@ -31,9 +32,11 @@ extern char *parser_file_name;
 
 /* Symbol prefix specified with -p, or 0 if no -p.  */
 extern const char *spec_name_prefix;
+extern location spec_name_prefix_loc;
 
 /* File name prefix specified with -b, or 0 if no -b.  */
 extern char const *spec_file_prefix;
+extern location spec_file_prefix_loc;
 
 /* --verbose. */
 extern char *spec_verbose_file;
@@ -45,7 +48,7 @@ extern char *spec_graph_file;
 extern char *spec_xml_file;
 
 /* File name specified with --defines.  */
-extern char *spec_defines_file;
+extern char *spec_header_file;
 
 /* Directory prefix of output file names.  */
 extern char *dir_prefix;
@@ -55,17 +58,28 @@ extern char *dir_prefix;
    and therefore GCC warns about a name clash. */
 extern uniqstr grammar_file;
 
-/* The current file name.  Might change with %include, or with #line.  */
-extern uniqstr current_file;
-
 /* The computed base for output file names.  */
 extern char *all_but_ext;
 
+/* Where our data files are installed.  */
+char const *pkgdatadir (void);
+
 void compute_output_file_names (void);
 void output_file_names_free (void);
-void output_file_name_check (char **file_name);
 
-FILE *xfopen (const char *name, const char *mode);
+/** Record that we generate a file.
+ *
+ *  \param file_name  the name of file being generated.
+ *  \param source whether this is a source file (*c, *.java...)
+ *                as opposed to a report (*.output, *.dot...).
+ */
+void output_file_name_check (char **file_name, bool source);
+
+/** Remove all the generated source files. */
+void unlink_generated_sources (void);
+
+FILE *xfopen (const char *name, char const *mode);
 void xfclose (FILE *ptr);
+FILE *xfdopen (int fd, char const *mode);
 
 #endif /* !FILES_H_ */

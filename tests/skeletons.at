@@ -1,6 +1,7 @@
 # Checking skeleton support.                     -*- Autotest -*-
 
-# Copyright (C) 2007, 2009-2012 Free Software Foundation, Inc.
+# Copyright (C) 2007, 2009-2015, 2018-2019 Free Software Foundation,
+# Inc.
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -91,7 +92,7 @@ m4_pushdef([AT_GRAM],
   int yylex (void);
 %}
 
-%error-verbose
+%define parse.error verbose
 %token 'a'
 
 %%
@@ -106,12 +107,7 @@ yylex (void)
 {
   return 'a';
 }
-
-int
-main (void)
-{
-  return yyparse ();
-}
+]AT_MAIN_DEFINE[
 ]])
 
 AT_DATA_GRAMMAR([[input-cmd-line.y]],
@@ -123,13 +119,13 @@ AT_GRAM])
 
 AT_BISON_CHECK([[--skeleton=yacc.c -o input-cmd-line.c input-cmd-line.y]])
 AT_COMPILE([[input-cmd-line]])
-AT_PARSER_CHECK([[./input-cmd-line]], [[1]], [],
+AT_PARSER_CHECK([[input-cmd-line]], [[1]], [],
 [[syntax error, unexpected 'a', expecting $end
 ]])
 
 AT_BISON_CHECK([[-o input-gram.c input-gram.y]])
 AT_COMPILE([[input-gram]])
-AT_PARSER_CHECK([[./input-gram]], [[1]], [],
+AT_PARSER_CHECK([[input-gram]], [[1]], [],
 [[syntax error, unexpected 'a', expecting $end
 ]])
 
@@ -191,8 +187,8 @@ start: ;
 ]])
 
 AT_BISON_CHECK([[input1.y]], [[1]], [[]],
-[[input1.y: warning: foow fubar
-foow.y:2.3-5.3: warning: foowat fubar
+[[input1.y: warning: foow fubar [-Wother]
+foow.y:2.3-5.3: warning: foowat fubar [-Wother]
 input1.y: error: fooc fubar
 fooc.y:1.1-10.5: error: foocat fubar
 input1.y: fatal error: foof fubar
@@ -281,7 +277,7 @@ start: ;
 ]])
 
 AT_BISON_CHECK([[input2.y]], [[1]], [[]],
-[[input2.y: warning: morning
+[[input2.y: warning: morning [-Wother]
 foo.y:1.5-6: fatal error: M4 should exit immediately here
 ]])
 
@@ -311,11 +307,11 @@ use strict;
 my $M4 = "m4";
 my $DNL = "d"."nl";
 print "${M4}_divert_push(0)$DNL\n";
-print '@output(@,@)', "\n";
+print '@output(@,@,@)', "\n";
 (print "garbage"x10, "\n") for (1..1000);
 print "${M4}_divert_pop(0)\n";
 ]])
-AT_CHECK([[$PERL gen-skel.pl > skel.c || exit 77]])
+AT_PERL_REQUIRE([[gen-skel.pl > skel.c]])
 
 AT_DATA([[input.y]],
 [[%skeleton "./skel.c"

@@ -1,6 +1,6 @@
 /* IELR's inadequacy list.
 
-   Copyright (C) 2009-2012 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015, 2018-2019 Free Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -20,18 +20,15 @@
 #ifndef INADEQUACY_LIST_H_
 # define INADEQUACY_LIST_H_
 
-#include <bitset.h>
-#include "gram.h"
-#include "state.h"
-#include "symtab.h"
+# include <bitset.h>
+# include "gram.h"
+# include "state.h"
+# include "symtab.h"
 
 /**
  * A unique ID assigned to every \c InadequacyList node.
- *
- * This must remain unsigned so that the overflow check in
- * \c InadequacyList__new_conflict works properly.
  */
-typedef unsigned long long int InadequacyListNodeCount;
+typedef long long InadequacyListNodeCount;
 
 /**
  * For a conflict, each rule in the grammar can have at most one contributing
@@ -90,7 +87,7 @@ typedef struct InadequacyList {
  *     <tt>manifesting_state->reductions->num + 1</tt>.
  *   - If the set of all \c InadequacyList nodes with which the new
  *     \c InadequacyList node might be compared is currently empty, then
- *     it is best if <tt>*node_count</t> is zero so that the node count
+ *     it is best if <tt>*node_count</tt> is zero so that the node count
  *     does not eventually overflow.  However, if that set is not
  *     currently empty, then <tt>*node_count</tt> has not been modified
  *     by any function except \c InadequacyList__new_conflict since the

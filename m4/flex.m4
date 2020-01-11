@@ -1,5 +1,5 @@
 # flex.m4 serial 2
-# Copyright (C) 2012 Free Software Foundation, Inc.
+# Copyright (C) 2012-2015, 2018-2019 Free Software Foundation, Inc.
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -15,7 +15,10 @@ AC_DEFUN_ONCE([AC_PROG_LEX],
 [AC_CHECK_PROGS([LEX], [flex lex], [:])
 if test "x$LEX" != "x:"; then
   _AC_PROG_LEX_YYTEXT_DECL
-fi])
+fi
+AC_SUBST([LEX_IS_FLEX],
+         [`test "$ac_cv_prog_lex_is_flex" = yes && echo true || echo false`])dnl
+])
 
 
 # _AC_PROG_LEX_YYTEXT_DECL
@@ -37,8 +40,6 @@ else
   ac_cv_prog_lex_is_flex=no
 fi
 ])
-AC_SUBST([LEX_IS_FLEX],
-         [`test "$ac_cv_prog_lex_is_flex" = yes && echo true || echo false`])dnl
 
 cat >conftest.l <<_ACEOF[
 %%
@@ -78,7 +79,7 @@ if test -z "${LEXLIB+set}"; then
     for ac_lib in '' -lfl -ll; do
       LIBS="$ac_lib $ac_save_LIBS"
       AC_LINK_IFELSE([AC_LANG_DEFINES_PROVIDED[`cat $LEX_OUTPUT_ROOT.c`]],
-	[ac_cv_lib_lex=$ac_lib])
+        [ac_cv_lib_lex=$ac_lib])
       test "$ac_cv_lib_lex" != 'none needed' && break
     done
     LIBS=$ac_save_LIBS
@@ -104,8 +105,8 @@ LIBS=$ac_save_LIBS
 dnl
 if test $ac_cv_prog_lex_yytext_pointer = yes; then
   AC_DEFINE([YYTEXT_POINTER], [1],
-	    [Define to 1 if `lex' declares `yytext' as a `char *' by default,
-	     not a `char[]'.])
+            [Define to 1 if `lex' declares `yytext' as a `char *' by default,
+             not a `char[]'.])
 fi
 rm -f conftest.l $LEX_OUTPUT_ROOT.c
 ])# _AC_PROG_LEX_YYTEXT_DECL

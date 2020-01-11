@@ -1,7 +1,7 @@
 /* DO NOT EDIT! GENERATED AUTOMATICALLY! */
 /* A GNU-like <math.h>.
 
-   Copyright (C) 2002-2003, 2007-2012 Free Software Foundation, Inc.
+   Copyright (C) 2002-2003, 2007-2019 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #ifndef _GL_MATH_H
 
@@ -29,14 +29,47 @@
 #ifndef _GL_MATH_H
 #define _GL_MATH_H
 
+/* On OpenVMS, NAN, INFINITY, and HUGEVAL macros are defined in <fp.h>.  */
+#if defined __VMS && ! defined NAN
+# include <fp.h>
+#endif
+
+#ifndef _GL_INLINE_HEADER_BEGIN
+ #error "Please include config.h first."
+#endif
 _GL_INLINE_HEADER_BEGIN
 #ifndef _GL_MATH_INLINE
 # define _GL_MATH_INLINE _GL_INLINE
 #endif
 
 /* The definitions of _GL_FUNCDECL_RPL etc. are copied here.  */
+/* C++ compatible function declaration macros.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
 #ifndef _GL_CXXDEFS_H
 #define _GL_CXXDEFS_H
+
+/* Begin/end the GNULIB_NAMESPACE namespace.  */
+#if defined __cplusplus && defined GNULIB_NAMESPACE
+# define _GL_BEGIN_NAMESPACE namespace GNULIB_NAMESPACE {
+# define _GL_END_NAMESPACE }
+#else
+# define _GL_BEGIN_NAMESPACE
+# define _GL_END_NAMESPACE
+#endif
 
 /* The three most frequent use cases of these macros are:
 
@@ -132,14 +165,25 @@ _GL_INLINE_HEADER_BEGIN
    that redirects to rpl_func, if GNULIB_NAMESPACE is defined.
    Example:
      _GL_CXXALIAS_RPL (open, int, (const char *filename, int flags, ...));
- */
+
+   Wrapping rpl_func in an object with an inline conversion operator
+   avoids a reference to rpl_func unless GNULIB_NAMESPACE::func is
+   actually used in the program.  */
 #define _GL_CXXALIAS_RPL(func,rettype,parameters) \
   _GL_CXXALIAS_RPL_1 (func, rpl_##func, rettype, parameters)
 #if defined __cplusplus && defined GNULIB_NAMESPACE
 # define _GL_CXXALIAS_RPL_1(func,rpl_func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                                \
     {                                                         \
-      rettype (*const func) parameters = ::rpl_func;          \
+      static const struct _gl_ ## func ## _wrapper            \
+      {                                                       \
+        typedef rettype (*type) parameters;                   \
+                                                              \
+        inline operator type () const                         \
+        {                                                     \
+          return ::rpl_func;                                  \
+        }                                                     \
+      } func = {};                                            \
     }                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -156,8 +200,15 @@ _GL_INLINE_HEADER_BEGIN
 # define _GL_CXXALIAS_RPL_CAST_1(func,rpl_func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                                     \
     {                                                              \
-      rettype (*const func) parameters =                           \
-        reinterpret_cast<rettype(*)parameters>(::rpl_func);        \
+      static const struct _gl_ ## func ## _wrapper                 \
+      {                                                            \
+        typedef rettype (*type) parameters;                        \
+                                                                   \
+        inline operator type () const                              \
+        {                                                          \
+          return reinterpret_cast<type>(::rpl_func);               \
+        }                                                          \
+      } func = {};                                                 \
     }                                                              \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -171,19 +222,24 @@ _GL_INLINE_HEADER_BEGIN
    is defined.
    Example:
      _GL_CXXALIAS_SYS (open, int, (const char *filename, int flags, ...));
- */
+
+   Wrapping func in an object with an inline conversion operator
+   avoids a reference to func unless GNULIB_NAMESPACE::func is
+   actually used in the program.  */
 #if defined __cplusplus && defined GNULIB_NAMESPACE
-  /* If we were to write
-       rettype (*const func) parameters = ::func;
-     like above in _GL_CXXALIAS_RPL_1, the compiler could optimize calls
-     better (remove an indirection through a 'static' pointer variable),
-     but then the _GL_CXXALIASWARN macro below would cause a warning not only
-     for uses of ::func but also for uses of GNULIB_NAMESPACE::func.  */
-# define _GL_CXXALIAS_SYS(func,rettype,parameters) \
-    namespace GNULIB_NAMESPACE                     \
-    {                                              \
-      static rettype (*func) parameters = ::func;  \
-    }                                              \
+# define _GL_CXXALIAS_SYS(func,rettype,parameters)            \
+    namespace GNULIB_NAMESPACE                                \
+    {                                                         \
+      static const struct _gl_ ## func ## _wrapper            \
+      {                                                       \
+        typedef rettype (*type) parameters;                   \
+                                                              \
+        inline operator type () const                         \
+        {                                                     \
+          return ::func;                                      \
+        }                                                     \
+      } func = {};                                            \
+    }                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
 # define _GL_CXXALIAS_SYS(func,rettype,parameters) \
@@ -199,8 +255,15 @@ _GL_INLINE_HEADER_BEGIN
 # define _GL_CXXALIAS_SYS_CAST(func,rettype,parameters) \
     namespace GNULIB_NAMESPACE                          \
     {                                                   \
-      static rettype (*func) parameters =               \
-        reinterpret_cast<rettype(*)parameters>(::func); \
+      static const struct _gl_ ## func ## _wrapper      \
+      {                                                 \
+        typedef rettype (*type) parameters;             \
+                                                        \
+        inline operator type () const                   \
+        {                                               \
+          return reinterpret_cast<type>(::func);        \
+        }                                               \
+      } func = {};                                      \
     }                                                   \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -223,9 +286,15 @@ _GL_INLINE_HEADER_BEGIN
 # define _GL_CXXALIAS_SYS_CAST2(func,rettype,parameters,rettype2,parameters2) \
     namespace GNULIB_NAMESPACE                                                \
     {                                                                         \
-      static rettype (*func) parameters =                                     \
-        reinterpret_cast<rettype(*)parameters>(                               \
-          (rettype2(*)parameters2)(::func));                                  \
+      static const struct _gl_ ## func ## _wrapper                            \
+      {                                                                       \
+        typedef rettype (*type) parameters;                                   \
+                                                                              \
+        inline operator type () const                                         \
+        {                                                                     \
+          return reinterpret_cast<type>((rettype2 (*) parameters2)(::func));  \
+        }                                                                     \
+      } func = {};                                                            \
     }                                                                         \
     _GL_EXTERN_C int _gl_cxxalias_dummy
 #else
@@ -242,7 +311,7 @@ _GL_INLINE_HEADER_BEGIN
    _GL_CXXALIASWARN_1 (func, GNULIB_NAMESPACE)
 # define _GL_CXXALIASWARN_1(func,namespace) \
    _GL_CXXALIASWARN_2 (func, namespace)
-/* To work around GCC bug <http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
+/* To work around GCC bug <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
    we enable the warning only when not optimizing.  */
 # if !__OPTIMIZE__
 #  define _GL_CXXALIASWARN_2(func,namespace) \
@@ -270,7 +339,7 @@ _GL_INLINE_HEADER_BEGIN
                         GNULIB_NAMESPACE)
 # define _GL_CXXALIASWARN1_1(func,rettype,parameters_and_attributes,namespace) \
    _GL_CXXALIASWARN1_2 (func, rettype, parameters_and_attributes, namespace)
-/* To work around GCC bug <http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
+/* To work around GCC bug <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43881>,
    we enable the warning only when not optimizing.  */
 # if !__OPTIMIZE__
 #  define _GL_CXXALIASWARN1_2(func,rettype,parameters_and_attributes,namespace) \
@@ -292,6 +361,22 @@ _GL_INLINE_HEADER_BEGIN
 #endif /* _GL_CXXDEFS_H */
 
 /* The definition of _GL_ARG_NONNULL is copied here.  */
+/* A C macro for declaring that specific arguments must not be NULL.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
 /* _GL_ARG_NONNULL((n,...,m)) tells the compiler and static analyzer tools
    that the values passed as arguments n, ..., m must be non-NULL pointers.
    n = 1 stands for the first argument, n = 2 for the second argument etc.  */
@@ -304,19 +389,104 @@ _GL_INLINE_HEADER_BEGIN
 #endif
 
 /* The definition of _GL_WARN_ON_USE is copied here.  */
+/* A C macro for emitting warnings if a function is used.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
+/* _GL_WARN_ON_USE (function, "literal string") issues a declaration
+   for FUNCTION which will then trigger a compiler warning containing
+   the text of "literal string" anywhere that function is called, if
+   supported by the compiler.  If the compiler does not support this
+   feature, the macro expands to an unused extern declaration.
+
+   _GL_WARN_ON_USE_ATTRIBUTE ("literal string") expands to the
+   attribute used in _GL_WARN_ON_USE.  If the compiler does not support
+   this feature, it expands to empty.
+
+   These macros are useful for marking a function as a potential
+   portability trap, with the intent that "literal string" include
+   instructions on the replacement function that should be used
+   instead.
+   _GL_WARN_ON_USE is for functions with 'extern' linkage.
+   _GL_WARN_ON_USE_ATTRIBUTE is for functions with 'static' or 'inline'
+   linkage.
+
+   However, one of the reasons that a function is a portability trap is
+   if it has the wrong signature.  Declaring FUNCTION with a different
+   signature in C is a compilation error, so this macro must use the
+   same type as any existing declaration so that programs that avoid
+   the problematic FUNCTION do not fail to compile merely because they
+   included a header that poisoned the function.  But this implies that
+   _GL_WARN_ON_USE is only safe to use if FUNCTION is known to already
+   have a declaration.  Use of this macro implies that there must not
+   be any other macro hiding the declaration of FUNCTION; but
+   undefining FUNCTION first is part of the poisoning process anyway
+   (although for symbols that are provided only via a macro, the result
+   is a compilation error rather than a warning containing
+   "literal string").  Also note that in C++, it is only safe to use if
+   FUNCTION has no overloads.
+
+   For an example, it is possible to poison 'getline' by:
+   - adding a call to gl_WARN_ON_USE_PREPARE([[#include <stdio.h>]],
+     [getline]) in configure.ac, which potentially defines
+     HAVE_RAW_DECL_GETLINE
+   - adding this code to a header that wraps the system <stdio.h>:
+     #undef getline
+     #if HAVE_RAW_DECL_GETLINE
+     _GL_WARN_ON_USE (getline, "getline is required by POSIX 2008, but"
+       "not universally present; use the gnulib module getline");
+     #endif
+
+   It is not possible to directly poison global variables.  But it is
+   possible to write a wrapper accessor function, and poison that
+   (less common usage, like &environ, will cause a compilation error
+   rather than issue the nice warning, but the end result of informing
+   the developer about their portability problem is still achieved):
+     #if HAVE_RAW_DECL_ENVIRON
+     static char ***
+     rpl_environ (void) { return &environ; }
+     _GL_WARN_ON_USE (rpl_environ, "environ is not always properly declared");
+     # undef environ
+     # define environ (*rpl_environ ())
+     #endif
+   or better (avoiding contradictory use of 'static' and 'extern'):
+     #if HAVE_RAW_DECL_ENVIRON
+     static char ***
+     _GL_WARN_ON_USE_ATTRIBUTE ("environ is not always properly declared")
+     rpl_environ (void) { return &environ; }
+     # undef environ
+     # define environ (*rpl_environ ())
+     #endif
+   */
 #ifndef _GL_WARN_ON_USE
 
 # if 4 < __GNUC__ || (__GNUC__ == 4 && 3 <= __GNUC_MINOR__)
 /* A compiler attribute is available in gcc versions 4.3.0 and later.  */
 #  define _GL_WARN_ON_USE(function, message) \
 extern __typeof__ (function) function __attribute__ ((__warning__ (message)))
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message) \
+  __attribute__ ((__warning__ (message)))
 # elif __GNUC__ >= 3 && GNULIB_STRICT_CHECKING
 /* Verify the existence of the function.  */
 #  define _GL_WARN_ON_USE(function, message) \
 extern __typeof__ (function) function
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message)
 # else /* Unsupported.  */
 #  define _GL_WARN_ON_USE(function, message) \
 _GL_WARN_EXTERN_C int _gl_warn_on_use
+#  define _GL_WARN_ON_USE_ATTRIBUTE(message)
 # endif
 #endif
 
@@ -371,22 +541,24 @@ _gl_cxx_ ## func ## l (long double l)                               \
 {                                                                   \
   return func (l);                                                  \
 }
-# define _GL_MATH_CXX_REAL_FLOATING_DECL_2(func) \
-inline int                                                          \
-func (float f)                                                      \
+# define _GL_MATH_CXX_REAL_FLOATING_DECL_2(func,rpl_func,rettype) \
+_GL_BEGIN_NAMESPACE                                                 \
+inline rettype                                                      \
+rpl_func (float f)                                                  \
 {                                                                   \
   return _gl_cxx_ ## func ## f (f);                                 \
 }                                                                   \
-inline int                                                          \
-func (double d)                                                     \
+inline rettype                                                      \
+rpl_func (double d)                                                 \
 {                                                                   \
   return _gl_cxx_ ## func ## d (d);                                 \
 }                                                                   \
-inline int                                                          \
-func (long double l)                                                \
+inline rettype                                                      \
+rpl_func (long double l)                                            \
 {                                                                   \
   return _gl_cxx_ ## func ## l (l);                                 \
-}
+}                                                                   \
+_GL_END_NAMESPACE
 #endif
 
 /* Helper macros to define a portability warning for the
@@ -394,27 +566,27 @@ func (long double l)                                                \
    classification macros with an argument of real-floating (that is,
    one of float, double, or long double).  */
 #define _GL_WARN_REAL_FLOATING_DECL(func) \
-_GL_MATH_INLINE int                                                 \
-rpl_ ## func ## f (float f)                                         \
-{                                                                   \
-  return func (f);                                                  \
-}                                                                   \
-_GL_MATH_INLINE int                                                 \
-rpl_ ## func ## d (double d)                                        \
-{                                                                   \
-  return func (d);                                                  \
-}                                                                   \
-_GL_MATH_INLINE int                                                 \
-rpl_ ## func ## l (long double l)                                   \
-{                                                                   \
-  return func (l);                                                  \
-}                                                                   \
-_GL_WARN_ON_USE (rpl_ ## func ## f, #func " is unportable - "       \
-                 "use gnulib module " #func " for portability");    \
-_GL_WARN_ON_USE (rpl_ ## func ## d, #func " is unportable - "       \
-                 "use gnulib module " #func " for portability");    \
-_GL_WARN_ON_USE (rpl_ ## func ## l, #func " is unportable - "       \
-                 "use gnulib module " #func " for portability")
+_GL_MATH_INLINE int                                                       \
+_GL_WARN_ON_USE_ATTRIBUTE (#func " is unportable - "                      \
+                           "use gnulib module " #func " for portability") \
+rpl_ ## func ## f (float f)                                               \
+{                                                                         \
+  return func (f);                                                        \
+}                                                                         \
+_GL_MATH_INLINE int                                                       \
+_GL_WARN_ON_USE_ATTRIBUTE (#func " is unportable - "                      \
+                           "use gnulib module " #func " for portability") \
+rpl_ ## func ## d (double d)                                              \
+{                                                                         \
+  return func (d);                                                        \
+}                                                                         \
+_GL_MATH_INLINE int                                                       \
+_GL_WARN_ON_USE_ATTRIBUTE (#func " is unportable - "                      \
+                           "use gnulib module " #func " for portability") \
+rpl_ ## func ## l (long double l)                                         \
+{                                                                         \
+  return func (l);                                                        \
+}
 #define _GL_WARN_REAL_FLOATING_IMPL(func, value) \
   (sizeof (value) == sizeof (float) ? rpl_ ## func ## f (value)     \
    : sizeof (value) == sizeof (double) ? rpl_ ## func ## d (value)  \
@@ -496,8 +668,17 @@ _NaN ()
 #endif
 
 
-/* Ensure FP_ILOGB0 and FP_ILOGBNAN are defined.  */
-#if !(defined FP_ILOGB0 && defined FP_ILOGBNAN)
+#if defined FP_ILOGB0 && defined FP_ILOGBNAN
+ /* Ensure FP_ILOGB0 and FP_ILOGBNAN are correct.  */
+# if defined __HAIKU__
+  /* Haiku: match what ilogb() does */
+#  undef FP_ILOGB0
+#  undef FP_ILOGBNAN
+#  define FP_ILOGB0   (- 2147483647 - 1) /* INT_MIN */
+#  define FP_ILOGBNAN (- 2147483647 - 1) /* INT_MIN */
+# endif
+#else
+ /* Ensure FP_ILOGB0 and FP_ILOGBNAN are defined.  */
 # if defined __NetBSD__ || defined __sgi
   /* NetBSD, IRIX 6.5: match what ilogb() does */
 #  define FP_ILOGB0   (- 2147483647 - 1) /* INT_MIN */
@@ -519,11 +700,20 @@ _NaN ()
 
 
 #if 0
-# if !1
-#  undef acosf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef acosf
+#   define acosf rpl_acosf
+#  endif
+_GL_FUNCDECL_RPL (acosf, float, (float x));
+_GL_CXXALIAS_RPL (acosf, float, (float x));
+# else
+#  if !1
+#   undef acosf
 _GL_FUNCDECL_SYS (acosf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (acosf, float, (float x));
+# endif
 _GL_CXXALIASWARN (acosf);
 #elif defined GNULIB_POSIXCHECK
 # undef acosf
@@ -550,11 +740,20 @@ _GL_WARN_ON_USE (acosl, "acosl is unportable - "
 
 
 #if 0
-# if !1
-#  undef asinf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef asinf
+#   define asinf rpl_asinf
+#  endif
+_GL_FUNCDECL_RPL (asinf, float, (float x));
+_GL_CXXALIAS_RPL (asinf, float, (float x));
+# else
+#  if !1
+#   undef asinf
 _GL_FUNCDECL_SYS (asinf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (asinf, float, (float x));
+# endif
 _GL_CXXALIASWARN (asinf);
 #elif defined GNULIB_POSIXCHECK
 # undef asinf
@@ -581,11 +780,20 @@ _GL_WARN_ON_USE (asinl, "asinl is unportable - "
 
 
 #if 0
-# if !1
-#  undef atanf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef atanf
+#   define atanf rpl_atanf
+#  endif
+_GL_FUNCDECL_RPL (atanf, float, (float x));
+_GL_CXXALIAS_RPL (atanf, float, (float x));
+# else
+#  if !1
+#   undef atanf
 _GL_FUNCDECL_SYS (atanf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (atanf, float, (float x));
+# endif
 _GL_CXXALIASWARN (atanf);
 #elif defined GNULIB_POSIXCHECK
 # undef atanf
@@ -612,11 +820,20 @@ _GL_WARN_ON_USE (atanl, "atanl is unportable - "
 
 
 #if 0
-# if !1
-#  undef atan2f
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef atan2f
+#   define atan2f rpl_atan2f
+#  endif
+_GL_FUNCDECL_RPL (atan2f, float, (float y, float x));
+_GL_CXXALIAS_RPL (atan2f, float, (float y, float x));
+# else
+#  if !1
+#   undef atan2f
 _GL_FUNCDECL_SYS (atan2f, float, (float y, float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (atan2f, float, (float y, float x));
+# endif
 _GL_CXXALIASWARN (atan2f);
 #elif defined GNULIB_POSIXCHECK
 # undef atan2f
@@ -655,7 +872,9 @@ _GL_WARN_ON_USE (cbrtf, "cbrtf is unportable - "
 _GL_FUNCDECL_SYS (cbrt, double, (double x));
 # endif
 _GL_CXXALIAS_SYS (cbrt, double, (double x));
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (cbrt);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef cbrt
 # if HAVE_RAW_DECL_CBRT
@@ -715,6 +934,7 @@ _GL_WARN_ON_USE (ceilf, "ceilf is unportable - "
 #if 0
 # if 0
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef ceil
 #   define ceil rpl_ceil
 #  endif
 _GL_FUNCDECL_RPL (ceil, double, (double x));
@@ -722,7 +942,9 @@ _GL_CXXALIAS_RPL (ceil, double, (double x));
 # else
 _GL_CXXALIAS_SYS (ceil, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (ceil);
+# endif
 #endif
 
 #if 0
@@ -769,7 +991,9 @@ _GL_WARN_ON_USE (copysignf, "copysignf is unportable - "
 _GL_FUNCDECL_SYS (copysign, double, (double x, double y));
 # endif
 _GL_CXXALIAS_SYS (copysign, double, (double x, double y));
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (copysign);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef copysign
 # if HAVE_RAW_DECL_COPYSIGN
@@ -794,11 +1018,20 @@ _GL_WARN_ON_USE (copysign, "copysignl is unportable - "
 
 
 #if 0
-# if !1
-#  undef cosf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef cosf
+#   define cosf rpl_cosf
+#  endif
+_GL_FUNCDECL_RPL (cosf, float, (float x));
+_GL_CXXALIAS_RPL (cosf, float, (float x));
+# else
+#  if !1
+#   undef cosf
 _GL_FUNCDECL_SYS (cosf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (cosf, float, (float x));
+# endif
 _GL_CXXALIASWARN (cosf);
 #elif defined GNULIB_POSIXCHECK
 # undef cosf
@@ -825,11 +1058,20 @@ _GL_WARN_ON_USE (cosl, "cosl is unportable - "
 
 
 #if 0
-# if !1
-#  undef coshf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef coshf
+#   define coshf rpl_coshf
+#  endif
+_GL_FUNCDECL_RPL (coshf, float, (float x));
+_GL_CXXALIAS_RPL (coshf, float, (float x));
+# else
+#  if !1
+#   undef coshf
 _GL_FUNCDECL_SYS (coshf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (coshf, float, (float x));
+# endif
 _GL_CXXALIASWARN (coshf);
 #elif defined GNULIB_POSIXCHECK
 # undef coshf
@@ -841,11 +1083,20 @@ _GL_WARN_ON_USE (coshf, "coshf is unportable - "
 
 
 #if 0
-# if !1
-#  undef expf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef expf
+#   define expf rpl_expf
+#  endif
+_GL_FUNCDECL_RPL (expf, float, (float x));
+_GL_CXXALIAS_RPL (expf, float, (float x));
+# else
+#  if !1
+#   undef expf
 _GL_FUNCDECL_SYS (expf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (expf, float, (float x));
+# endif
 _GL_CXXALIASWARN (expf);
 #elif defined GNULIB_POSIXCHECK
 # undef expf
@@ -856,11 +1107,20 @@ _GL_WARN_ON_USE (expf, "expf is unportable - "
 #endif
 
 #if 0
-# if !1 || !1
-#  undef expl
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef expl
+#   define expl rpl_expl
+#  endif
+_GL_FUNCDECL_RPL (expl, long double, (long double x));
+_GL_CXXALIAS_RPL (expl, long double, (long double x));
+# else
+#  if !1 || !1
+#   undef expl
 _GL_FUNCDECL_SYS (expl, long double, (long double x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (expl, long double, (long double x));
+# endif
 _GL_CXXALIASWARN (expl);
 #elif defined GNULIB_POSIXCHECK
 # undef expl
@@ -899,7 +1159,9 @@ _GL_FUNCDECL_SYS (exp2, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (exp2, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (exp2);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef exp2
 # if HAVE_RAW_DECL_EXP2
@@ -970,7 +1232,9 @@ _GL_FUNCDECL_SYS (expm1, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (expm1, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (expm1);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef expm1
 # if HAVE_RAW_DECL_EXPM1
@@ -980,11 +1244,22 @@ _GL_WARN_ON_USE (expm1, "expm1 is unportable - "
 #endif
 
 #if 0
-# if !1
-#  undef expm1l
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef expm1l
+#   define expm1l rpl_expm1l
+#  endif
+_GL_FUNCDECL_RPL (expm1l, long double, (long double x));
+_GL_CXXALIAS_RPL (expm1l, long double, (long double x));
+# else
+#  if !1
+#   undef expm1l
+#   if !(defined __cplusplus && defined _AIX)
 _GL_FUNCDECL_SYS (expm1l, long double, (long double x));
-# endif
+#   endif
+#  endif
 _GL_CXXALIAS_SYS (expm1l, long double, (long double x));
+# endif
 _GL_CXXALIASWARN (expm1l);
 #elif defined GNULIB_POSIXCHECK
 # undef expm1l
@@ -1062,6 +1337,7 @@ _GL_WARN_ON_USE (floorf, "floorf is unportable - "
 #if 0
 # if 0
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef floor
 #   define floor rpl_floor
 #  endif
 _GL_FUNCDECL_RPL (floor, double, (double x));
@@ -1069,7 +1345,9 @@ _GL_CXXALIAS_RPL (floor, double, (double x));
 # else
 _GL_CXXALIAS_SYS (floor, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (floor);
+# endif
 #endif
 
 #if 0
@@ -1134,7 +1412,9 @@ _GL_FUNCDECL_SYS (fma, double, (double x, double y, double z));
 #  endif
 _GL_CXXALIAS_SYS (fma, double, (double x, double y, double z));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (fma);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef fma
 # if HAVE_RAW_DECL_FMA
@@ -1156,8 +1436,10 @@ _GL_CXXALIAS_RPL (fmal, long double,
 # else
 #  if !1
 #   undef fmal
+#   if !(defined __cplusplus && defined _AIX)
 _GL_FUNCDECL_SYS (fmal, long double,
                   (long double x, long double y, long double z));
+#   endif
 #  endif
 _GL_CXXALIAS_SYS (fmal, long double,
                   (long double x, long double y, long double z));
@@ -1207,7 +1489,9 @@ _GL_CXXALIAS_RPL (fmod, double, (double x, double y));
 # else
 _GL_CXXALIAS_SYS (fmod, double, (double x, double y));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (fmod);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef fmod
 # if HAVE_RAW_DECL_FMOD
@@ -1282,6 +1566,7 @@ _GL_WARN_ON_USE (frexpf, "frexpf is unportable - "
 #if 1
 # if 0
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef frexp
 #   define frexp rpl_frexp
 #  endif
 _GL_FUNCDECL_RPL (frexp, double, (double x, int *expptr) _GL_ARG_NONNULL ((2)));
@@ -1289,7 +1574,9 @@ _GL_CXXALIAS_RPL (frexp, double, (double x, int *expptr));
 # else
 _GL_CXXALIAS_SYS (frexp, double, (double x, int *expptr));
 # endif
-_GL_CXXALIASWARN (frexp);
+# if __GLIBC__ >= 2
+_GL_CXXALIASWARN1 (frexp, double, (double x, int *expptr));
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef frexp
 /* Assume frexp is always declared.  */
@@ -1369,7 +1656,9 @@ _GL_CXXALIAS_RPL (hypot, double, (double x, double y));
 # else
 _GL_CXXALIAS_SYS (hypot, double, (double x, double y));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (hypot);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef hypot
 # if HAVE_RAW_DECL_HYPOT
@@ -1440,7 +1729,9 @@ _GL_FUNCDECL_SYS (ilogb, int, (double x));
 #  endif
 _GL_CXXALIAS_SYS (ilogb, int, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (ilogb);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef ilogb
 # if HAVE_RAW_DECL_ILOGB
@@ -1450,10 +1741,19 @@ _GL_WARN_ON_USE (ilogb, "ilogb is unportable - "
 #endif
 
 #if 0
-# if !1
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef ilogbl
+#   define ilogbl rpl_ilogbl
+#  endif
+_GL_FUNCDECL_RPL (ilogbl, int, (long double x));
+_GL_CXXALIAS_RPL (ilogbl, int, (long double x));
+# else
+#  if !1
 _GL_FUNCDECL_SYS (ilogbl, int, (long double x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (ilogbl, int, (long double x));
+# endif
 _GL_CXXALIASWARN (ilogbl);
 #elif defined GNULIB_POSIXCHECK
 # undef ilogbl
@@ -1543,7 +1843,9 @@ _GL_CXXALIAS_RPL (log, double, (double x));
 # else
 _GL_CXXALIAS_SYS (log, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (log);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef log
 # if HAVE_RAW_DECL_LOG
@@ -1612,7 +1914,9 @@ _GL_CXXALIAS_RPL (log10, double, (double x));
 # else
 _GL_CXXALIAS_SYS (log10, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (log10);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef log10
 # if HAVE_RAW_DECL_LOG10
@@ -1683,7 +1987,9 @@ _GL_FUNCDECL_SYS (log1p, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (log1p, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (log1p);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef log1p
 # if HAVE_RAW_DECL_LOG1P
@@ -1755,7 +2061,9 @@ _GL_FUNCDECL_SYS (log2, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (log2, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (log2);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef log2
 # if HAVE_RAW_DECL_LOG2
@@ -1825,7 +2133,9 @@ _GL_FUNCDECL_SYS (logb, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (logb, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (logb);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef logb
 # if HAVE_RAW_DECL_LOGB
@@ -1893,7 +2203,9 @@ _GL_CXXALIAS_RPL (modf, double, (double x, double *iptr));
 # else
 _GL_CXXALIAS_SYS (modf, double, (double x, double *iptr));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (modf);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef modf
 # if HAVE_RAW_DECL_MODF
@@ -1982,7 +2294,9 @@ _GL_FUNCDECL_SYS (remainder, double, (double x, double y));
 #  endif
 _GL_CXXALIAS_SYS (remainder, double, (double x, double y));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (remainder);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef remainder
 # if HAVE_RAW_DECL_REMAINDER
@@ -2002,7 +2316,9 @@ _GL_CXXALIAS_RPL (remainderl, long double, (long double x, long double y));
 # else
 #  if !1
 #   undef remainderl
+#   if !(defined __cplusplus && defined _AIX)
 _GL_FUNCDECL_SYS (remainderl, long double, (long double x, long double y));
+#   endif
 #  endif
 _GL_CXXALIAS_SYS (remainderl, long double, (long double x, long double y));
 # endif
@@ -2035,7 +2351,9 @@ _GL_WARN_ON_USE (rintf, "rintf is unportable - "
 _GL_FUNCDECL_SYS (rint, double, (double x));
 # endif
 _GL_CXXALIAS_SYS (rint, double, (double x));
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (rint);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef rint
 # if HAVE_RAW_DECL_RINT
@@ -2045,10 +2363,19 @@ _GL_WARN_ON_USE (rint, "rint is unportable - "
 #endif
 
 #if 0
-# if !1
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef rintl
+#   define rintl rpl_rintl
+#  endif
+_GL_FUNCDECL_RPL (rintl, long double, (long double x));
+_GL_CXXALIAS_RPL (rintl, long double, (long double x));
+# else
+#  if !1
 _GL_FUNCDECL_SYS (rintl, long double, (long double x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (rintl, long double, (long double x));
+# endif
 _GL_CXXALIASWARN (rintl);
 #elif defined GNULIB_POSIXCHECK
 # undef rintl
@@ -2096,7 +2423,9 @@ _GL_FUNCDECL_SYS (round, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (round, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (round);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef round
 # if HAVE_RAW_DECL_ROUND
@@ -2116,7 +2445,9 @@ _GL_CXXALIAS_RPL (roundl, long double, (long double x));
 # else
 #  if !1
 #   undef roundl
+#   if !(defined __cplusplus && defined _AIX)
 _GL_FUNCDECL_SYS (roundl, long double, (long double x));
+#   endif
 #  endif
 _GL_CXXALIAS_SYS (roundl, long double, (long double x));
 # endif
@@ -2131,11 +2462,20 @@ _GL_WARN_ON_USE (roundl, "roundl is unportable - "
 
 
 #if 0
-# if !1
-#  undef sinf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef sinf
+#   define sinf rpl_sinf
+#  endif
+_GL_FUNCDECL_RPL (sinf, float, (float x));
+_GL_CXXALIAS_RPL (sinf, float, (float x));
+# else
+#  if !1
+ #  undef sinf
 _GL_FUNCDECL_SYS (sinf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (sinf, float, (float x));
+# endif
 _GL_CXXALIASWARN (sinf);
 #elif defined GNULIB_POSIXCHECK
 # undef sinf
@@ -2162,11 +2502,20 @@ _GL_WARN_ON_USE (sinl, "sinl is unportable - "
 
 
 #if 0
-# if !1
-#  undef sinhf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef sinhf
+#   define sinhf rpl_sinhf
+#  endif
+_GL_FUNCDECL_RPL (sinhf, float, (float x));
+_GL_CXXALIAS_RPL (sinhf, float, (float x));
+# else
+#  if !1
+#   undef sinhf
 _GL_FUNCDECL_SYS (sinhf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (sinhf, float, (float x));
+# endif
 _GL_CXXALIASWARN (sinhf);
 #elif defined GNULIB_POSIXCHECK
 # undef sinhf
@@ -2178,11 +2527,20 @@ _GL_WARN_ON_USE (sinhf, "sinhf is unportable - "
 
 
 #if 0
-# if !1
-#  undef sqrtf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef sqrtf
+#   define sqrtf rpl_sqrtf
+#  endif
+_GL_FUNCDECL_RPL (sqrtf, float, (float x));
+_GL_CXXALIAS_RPL (sqrtf, float, (float x));
+# else
+#  if !1
+#   undef sqrtf
 _GL_FUNCDECL_SYS (sqrtf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (sqrtf, float, (float x));
+# endif
 _GL_CXXALIASWARN (sqrtf);
 #elif defined GNULIB_POSIXCHECK
 # undef sqrtf
@@ -2218,11 +2576,20 @@ _GL_WARN_ON_USE (sqrtl, "sqrtl is unportable - "
 
 
 #if 0
-# if !1
-#  undef tanf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef tanf
+#   define tanf rpl_tanf
+#  endif
+_GL_FUNCDECL_RPL (tanf, float, (float x));
+_GL_CXXALIAS_RPL (tanf, float, (float x));
+# else
+#  if !1
+#   undef tanf
 _GL_FUNCDECL_SYS (tanf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (tanf, float, (float x));
+# endif
 _GL_CXXALIASWARN (tanf);
 #elif defined GNULIB_POSIXCHECK
 # undef tanf
@@ -2249,11 +2616,20 @@ _GL_WARN_ON_USE (tanl, "tanl is unportable - "
 
 
 #if 0
-# if !1
-#  undef tanhf
+# if 0
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef tanhf
+#   define tanhf rpl_tanhf
+#  endif
+_GL_FUNCDECL_RPL (tanhf, float, (float x));
+_GL_CXXALIAS_RPL (tanhf, float, (float x));
+# else
+#  if !1
+#   undef tanhf
 _GL_FUNCDECL_SYS (tanhf, float, (float x));
-# endif
+#  endif
 _GL_CXXALIAS_SYS (tanhf, float, (float x));
+# endif
 _GL_CXXALIASWARN (tanhf);
 #elif defined GNULIB_POSIXCHECK
 # undef tanhf
@@ -2267,6 +2643,7 @@ _GL_WARN_ON_USE (tanhf, "tanhf is unportable - "
 #if 0
 # if 0
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef truncf
 #   define truncf rpl_truncf
 #  endif
 _GL_FUNCDECL_RPL (truncf, float, (float x));
@@ -2289,6 +2666,7 @@ _GL_WARN_ON_USE (truncf, "truncf is unportable - "
 #if 0
 # if 0
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   undef trunc
 #   define trunc rpl_trunc
 #  endif
 _GL_FUNCDECL_RPL (trunc, double, (double x));
@@ -2299,7 +2677,9 @@ _GL_FUNCDECL_SYS (trunc, double, (double x));
 #  endif
 _GL_CXXALIAS_SYS (trunc, double, (double x));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (trunc);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef trunc
 # if HAVE_RAW_DECL_TRUNC
@@ -2348,10 +2728,17 @@ _GL_EXTERN_C int gl_isfinitel (long double x);
     gl_isfinitef (x))
 # endif
 # ifdef __cplusplus
-#  ifdef isfinite
+#  if defined isfinite || defined GNULIB_NAMESPACE
 _GL_MATH_CXX_REAL_FLOATING_DECL_1 (isfinite)
 #   undef isfinite
-_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isfinite)
+#   if __GNUC__ >= 6 || (defined __clang__ && !defined _AIX)
+  /* This platform's <cmath> possibly defines isfinite through a set of inline
+     functions.  */
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isfinite, rpl_isfinite, bool)
+#    define isfinite rpl_isfinite
+#   else
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isfinite, isfinite, bool)
+#   endif
 #  endif
 # endif
 #elif defined GNULIB_POSIXCHECK
@@ -2375,10 +2762,17 @@ _GL_EXTERN_C int gl_isinfl (long double x);
     gl_isinff (x))
 # endif
 # ifdef __cplusplus
-#  ifdef isinf
+#  if defined isinf || defined GNULIB_NAMESPACE
 _GL_MATH_CXX_REAL_FLOATING_DECL_1 (isinf)
 #   undef isinf
-_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isinf)
+#   if __GNUC__ >= 6 || defined __clang__
+  /* This platform's <cmath> possibly defines isinf through a set of inline
+     functions.  */
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isinf, rpl_isinf, bool)
+#    define isinf rpl_isinf
+#   else
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isinf, isinf, bool)
+#   endif
 #  endif
 # endif
 #elif defined GNULIB_POSIXCHECK
@@ -2392,7 +2786,7 @@ _GL_WARN_REAL_FLOATING_DECL (isinf);
 
 #if 1
 /* Test for NaN for 'float' numbers.  */
-# if 1
+# if 0
 /* The original <math.h> included above provides a declaration of isnan macro
    or (older) isnanf function.  */
 #  if __GNUC__ >= 4
@@ -2462,7 +2856,7 @@ _GL_EXTERN_C int isnanl (long double x) _GL_ATTRIBUTE_CONST;
    isnanf.h (e.g.) here, because those may end up being macros
    that recursively expand back to isnan.  So use the gnulib
    replacements for them directly. */
-#  if 1 && __GNUC__ >= 4
+#  if 0 && __GNUC__ >= 4
 #   define gl_isnan_f(x) __builtin_isnanf ((float)(x))
 #  else
 _GL_EXTERN_C int rpl_isnanf (float x);
@@ -2493,10 +2887,17 @@ _GL_EXTERN_C int rpl_isnanl (long double x) _GL_ATTRIBUTE_CONST;
     __builtin_isnanf ((float)(x)))
 # endif
 # ifdef __cplusplus
-#  ifdef isnan
+#  if defined isnan || defined GNULIB_NAMESPACE
 _GL_MATH_CXX_REAL_FLOATING_DECL_1 (isnan)
 #   undef isnan
-_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isnan)
+#   if __GNUC__ >= 6 || defined __clang__
+  /* This platform's <cmath> possibly defines isnan through a set of inline
+     functions.  */
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isnan, rpl_isnan, bool)
+#    define isnan rpl_isnan
+#   else
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (isnan, isnan, bool)
+#   endif
 #  endif
 # else
 /* Ensure isnan is a macro.  */
@@ -2514,7 +2915,8 @@ _GL_WARN_REAL_FLOATING_DECL (isnan);
 
 
 #if 1
-# if 0
+# if (1 \
+      && (!defined __cplusplus || __cplusplus < 201103))
 #  undef signbit
    /* GCC 4.0 and newer provides three built-ins for signbit.  */
 #  define signbit(x) \
@@ -2522,7 +2924,7 @@ _GL_WARN_REAL_FLOATING_DECL (isnan);
     sizeof (x) == sizeof (double) ? __builtin_signbit (x) : \
     __builtin_signbitf (x))
 # endif
-# if 0
+# if 0 && !GNULIB_defined_signbit
 #  undef signbit
 _GL_EXTERN_C int gl_signbitf (float arg);
 _GL_EXTERN_C int gl_signbitd (double arg);
@@ -2565,12 +2967,20 @@ _GL_EXTERN_C int gl_signbitl (long double arg);
    (sizeof (x) == sizeof (long double) ? gl_signbitl (x) : \
     sizeof (x) == sizeof (double) ? gl_signbitd (x) : \
     gl_signbitf (x))
+#  define GNULIB_defined_signbit 1
 # endif
 # ifdef __cplusplus
-#  ifdef signbit
+#  if defined signbit || defined GNULIB_NAMESPACE
 _GL_MATH_CXX_REAL_FLOATING_DECL_1 (signbit)
 #   undef signbit
-_GL_MATH_CXX_REAL_FLOATING_DECL_2 (signbit)
+#   if __GNUC__ >= 6 || (defined __clang__ && !defined _AIX)
+  /* This platform's <cmath> possibly defines signbit through a set of inline
+     functions.  */
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (signbit, rpl_signbit, bool)
+#    define signbit rpl_signbit
+#   else
+_GL_MATH_CXX_REAL_FLOATING_DECL_2 (signbit, signbit, bool)
+#   endif
 #  endif
 # endif
 #elif defined GNULIB_POSIXCHECK
